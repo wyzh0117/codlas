@@ -1,0 +1,50 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/domain",
+  "crates/core",
+  "crates/storage",
+  "crates/state-engine",
+  "crates/guard-engine",
+  "crates/context-engine",
+  "crates/ingestion",
+  "crates/security",
+  "crates/search",
+  "apps/cli",
+]
+# The golden fixtures include a deliberately broken, non-member Cargo.toml (the
+# INV-001 violation the drift rules must catch); keep cargo from reading it.
+exclude = ["tests"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[workspace.dependencies]
+vibe-domain = { path = "crates/domain" }
+vibe-core = { path = "crates/core" }
+vibe-storage = { path = "crates/storage" }
+vibe-state-engine = { path = "crates/state-engine" }
+vibe-guard-engine = { path = "crates/guard-engine" }
+vibe-context-engine = { path = "crates/context-engine" }
+vibe-ingestion = { path = "crates/ingestion" }
+vibe-security = { path = "crates/security" }
+vibe-search = { path = "crates/search" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
+hex = "0.4"
+thiserror = "2"
+regex = "1"
+rusqlite = { version = "0.40", features = ["bundled", "serde_json"] }
+clap = { version = "4", features = ["derive"] }
+zip = "2"
+tempfile = "3"
+
+[profile.dev]
+debug = 0

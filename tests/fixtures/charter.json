@@ -1,0 +1,83 @@
+{
+  "project": {
+    "name": "构览 Codlas",
+    "description": "个人 Vibe Coding 项目开发记录工作台",
+    "rootPath": "/Users/youngi/Documents/MiniWork/构览-Codlas",
+    "currentPhase": "V1-A Foundation → V1-C State Engine"
+  },
+  "charter": {
+    "originalProblem": "个人 vibe coding 的对话散落在多个 Agent 中，项目逐渐脱离最初设计，几周后连开发者自己也说不清为什么这样做。",
+    "targetUser": "一个人做 vibe coding 的独立开发者",
+    "coreValue": "Project Continuity + Design Fidelity：项目连续性，以及对最初设计意图的保持。",
+    "mustHave": [
+      "event-first 的项目记录",
+      "charter 与 scope 的用户锁定",
+      "自动编译的 PROJECT_MAP",
+      "偏航提示与 inbox",
+      "按问题动态编译的 context pack"
+    ],
+    "wontHave": [
+      "多人协作",
+      "团队权限与组织管理",
+      "企业审批流",
+      "代码编辑器",
+      "通用第二大脑"
+    ],
+    "successCriteria": [
+      "换模型或隔周回来能从正确位置继续开发",
+      "任何关键状态都能回答为什么",
+      "选中一个问题即可交给任意 Agent"
+    ],
+    "architecturePrinciples": [
+      "local-first",
+      "core 不直接依赖 SQLite",
+      "一次模型摘要不得覆盖项目事实"
+    ],
+    "constraints": [
+      "单用户优先",
+      "charter 只能由用户修改"
+    ],
+    "locked": true
+  },
+  "scope": {
+    "inScope": [
+      "event store",
+      "project state reducer",
+      "project map compiler",
+      "drift rules",
+      "context pack compiler"
+    ],
+    "outOfScope": [
+      "team workspace",
+      "role 与 permission",
+      "实时甘特图"
+    ],
+    "deferred": [
+      "个人云同步",
+      "向量检索"
+    ],
+    "forbidden": [
+      "让 LLM 自由重写 charter"
+    ]
+  },
+  "baseline": {
+    "summary": "Event Store + Materialized Project State + Repository Port + Context Compiler",
+    "layers": [
+      { "id": "L1", "name": "core", "responsibility": "项目逻辑与端口定义" },
+      { "id": "L2", "name": "storage", "responsibility": "SQLite 实现" }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "text": "Core 不直接依赖 SQLite 实现",
+        "detect": ["rusqlite", "sqlite"]
+      },
+      {
+        "id": "INV-002",
+        "text": "项目状态只有一个来源，禁止维护两套",
+        "detect": ["state_backup", "legacy_state"]
+      }
+    ],
+    "replaceableParts": ["SqliteStore 可被 Local + Sync Repository 替换"]
+  }
+}

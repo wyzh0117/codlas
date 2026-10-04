@@ -1,0 +1,18 @@
+[package]
+name = "vibe-security"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+vibe-domain.workspace = true
+vibe-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+regex.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+vibe-storage.workspace = true

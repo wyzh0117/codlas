@@ -1,0 +1,28 @@
+[package]
+name = "vibe-cli"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "wp"
+path = "src/main.rs"
+
+[dependencies]
+vibe-domain.workspace = true
+vibe-core.workspace = true
+vibe-storage.workspace = true
+vibe-state-engine.workspace = true
+vibe-guard-engine.workspace = true
+vibe-context-engine.workspace = true
+vibe-security.workspace = true
+vibe-search.workspace = true
+vibe-ingestion.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

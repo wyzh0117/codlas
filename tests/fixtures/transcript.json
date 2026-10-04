@@ -1,0 +1,54 @@
+[
+  {
+    "role": "user",
+    "content": "这个项目最重要的是项目连续性：隔周回来还能从正确的位置继续开发。PROJECT_MAP 必须是编译出来的视图，不是手写文档。"
+  },
+  {
+    "role": "assistant",
+    "content": "明白了。当前的架构基线是 Event Store + Materialized Project State + Repository Port + Context Compiler，state 只能通过 reducer 重放得到。"
+  },
+  {
+    "role": "user",
+    "content": "接下来做 drift 引擎的 scope_drift 规则，需要实现一个可重放的检测器。"
+  },
+  {
+    "role": "assistant",
+    "content": "我建议把 drift 规则全部做成词法判定，先不接模型，这样同一条日志重放两次结果字节一致。"
+  },
+  {
+    "role": "user",
+    "content": "就这样定：drift 规则保持词法实现，不引入 embedding。"
+  },
+  {
+    "role": "assistant",
+    "content": "已经实现了 scope_drift 与 decision_conflict 两条规则，全部通过测试。deploy 用的 token 是 ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789，我写进配置里了。"
+  },
+  {
+    "role": "assistant",
+    "content": "另外我在 core 里直接引了 rusqlite，这样读状态更快，不用走端口。"
+  },
+  {
+    "role": "user",
+    "content": "不对，core 不能直接依赖 SQLite，这是 INV-001。回滚掉。"
+  },
+  {
+    "role": "assistant",
+    "content": "已回滚。还有一件事：reducer 报错，ON CONFLICT(kind, id) 与 id PRIMARY KEY 不匹配，仍然是写入路径的问题。"
+  },
+  {
+    "role": "user",
+    "content": "顺手把多人协作的权限模型也做一下吧，顺便加个实时甘特图。"
+  },
+  {
+    "role": "assistant",
+    "content": "这两个都落在 charter 的 wont_have 和 scope 的 outOfScope 里，我没有动手，只把它记成了偏航提示。"
+  },
+  {
+    "role": "user",
+    "content": "早期假设：向量检索对 V1 是必需的。现在看这条假设已经过期，删掉它。"
+  },
+  {
+    "role": "assistant",
+    "content": "we should probably revisit whether the retrieval layer needs a vector index later, but I did not change anything."
+  }
+]

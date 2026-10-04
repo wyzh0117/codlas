@@ -1,0 +1,10 @@
+[package]
+name = "fixture-core"
+version = "0.1.0"
+edition = "2021"
+
+# Golden fixture: this is the violation INV-001 must catch. A real core crate
+# reaches for the repository ports; this one names the database driver.
+[dependencies]
+serde = "1"
+rusqlite = "0.31"
