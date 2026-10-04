@@ -24,14 +24,14 @@ use vibe_core::ports::Repositories;
 use vibe_core::resolution::{EntityResolver, AUTO_MERGE_CONFIDENCE};
 use vibe_core::settings::SettingsService;
 use vibe_domain::{
-    event_catalog, ActorType, Conversation, EntityKind, Message, MessageRole,
-    NormalizedConversationBatch, Source, SourceType, SyncCursor,
+    event_catalog, ActorType, AdapterHealth, AdapterState, Conversation, EntityKind, Message,
+    MessageRole, NormalizedConversationBatch, Source, SourceType, SyncCursor,
 };
 
 use crate::adapter::AgentAdapter;
 
 /// Everything one adapter contributed to one run.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AdapterReport {
     pub adapter_id: String,
     /// The `Source` row this adapter writes into — empty until the source is resolved.
@@ -213,9 +213,19 @@ impl IngestPipeline {
             match adapter.detect() {
                 Ok(true) => {}
                 // An adapter that is not present on this machine contributes nothing;
-                // it is not an error, and §62 Degradation covers the user's side.
-                Ok(false) => continue,
+                // it is not an error, and §62 Degradation covers the user's side. It is
+                // still recorded, because "which adapters does this workbench have?" is
+                // answered better from a stored verdict than from a silent skip.
+                Ok(false) => {
+                    self.record_health(adapter.id(), AdapterHealth::Unavailable, None)?;
+                    continue;
+                }
                 Err(error) => {
+                    self.record_health(
+                        adapter.id(),
+                        AdapterHealth::Failed,
+                        Some(format!("detect failed: {error}")),
+                    )?;
                     report.push(AdapterReport::failed(
                         adapter.id(),
                         "",
@@ -224,7 +234,9 @@ impl IngestPipeline {
                     continue;
                 }
             }
-            report.push(self.ingest_adapter(project_id, adapter));
+            let outcome = self.ingest_adapter(project_id, adapter);
+            self.note_health(&outcome)?;
+            report.push(outcome);
         }
         Ok(report)
     }
@@ -238,7 +250,35 @@ impl IngestPipeline {
             .ok_or_else(|| CoreError::NotFound {
                 what: format!("adapter {adapter_id}"),
             })?;
-        Ok(self.ingest_adapter(project_id, &adapter))
+        let outcome = self.ingest_adapter(project_id, &adapter);
+        self.note_health(&outcome)?;
+        Ok(outcome)
+    }
+
+    /// Stage H: one verdict per adapter, so §62 Degradation is answerable after the run
+    /// rather than only while it is happening.
+    fn note_health(&self, outcome: &AdapterReport) -> Result<()> {
+        self.record_health(
+            &outcome.adapter_id,
+            report_health(outcome),
+            outcome.error.clone(),
+        )
+    }
+
+    /// A health write that fails is a storage problem, not the adapter's, so callers keep
+    /// the run's own error in the report and this only adds the verdict to the log.
+    fn record_health(
+        &self,
+        adapter_id: &str,
+        health: AdapterHealth,
+        detail: Option<String>,
+    ) -> Result<()> {
+        self.repos.adapters.record_state(&AdapterState {
+            adapter_id: adapter_id.to_string(),
+            health,
+            detail,
+            updated_at: vibe_domain::now(),
+        })
     }
 
     /// Store an already-normalised batch — the entry point for material the caller read
@@ -554,6 +594,21 @@ impl IngestPipeline {
             });
         }
         Ok(())
+    }
+}
+
+/// Which of the four health states a run produced (Stage H, ADR-021). A report carrying
+/// an error *after* it committed material is `degraded`: the user's data landed, the sync
+/// position did not — which is a different thing to tell the user than a failure. An
+/// uneventful run with nothing new is `ok`, not degraded; §51's idempotency means an
+/// unchanged source legitimately reports zero rows.
+pub fn report_health(outcome: &AdapterReport) -> AdapterHealth {
+    match &outcome.error {
+        None => AdapterHealth::Ok,
+        Some(_) if outcome.messages_inserted + outcome.events_appended > 0 => {
+            AdapterHealth::Degraded
+        }
+        Some(_) => AdapterHealth::Failed,
     }
 }
 

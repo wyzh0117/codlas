@@ -7,6 +7,179 @@
 
 ---
 
+## 2026-10-05 · V1 第二轮：把第一轮留下的半成品与缺口做完（Stage D/E/F/G/H + §38 MCP）
+
+### LAST COMPLETED
+
+第一轮把 §7.2 那条链跑通了，本轮把 V1_DEVELOPMENT 里**未完成与完成一半**的八项补齐，
+没有新增产品概念（§19 禁止 8）：
+
+1. **`wp evidence <kind:id>`（§17 / §45，Stage E 验收）**——一条记录引用的证据终于有读取入口。
+   之前 `EvidenceRepository::for_subject` 已经写好了，但只有 golden 测试能调用它；
+   现在人能读，机器 `--json` 也能读。
+2. **Backup / verify / restore（§55 备份侧 + §62 Recovery，Stage H）**——`wp backup
+   create|status|verify|restore`。用 SQLite Online Backup API **两个方向都走同一条路**
+   （`fs::copy` 会冻结未 checkpoint 的 WAL；换文件等于换掉一个本进程还开着的库）。
+   报告里带 `PRAGMA integrity_check` 的原话；`restorable(known_version)` 挡住比本 build
+   更新 schema 的文件；restore 需要 `--yes`，拒绝把自己恢复到自己，并且先把当前库快照一份
+   （快照失败只 warn——Recovery 不能被安全网卡住）。秘密值按 ADR-017 不在库里，所以备份只带
+   `secret_ref`。见 ADR-023。
+3. **Adapter Health（Stage H + §62 Degradation）**——`AdapterRepository`（第十一个端口）＋
+   `AdapterHealth { ok | unavailable | degraded | failed }`。表 `adapter_states` 早就在 schema v1
+   里（§49 冻结），冻的是表不是词，本轮把词定下来并让 pipeline 每次运行都留一句判词。
+   `unavailable ≠ failed` 是这条记录的关键：来源不在这台机器上不是 bug。`wp adapters` 读它。见 ADR-021。
+4. **§39 监听事件**——`wp watch [--dir] [--repo-id]` 一次 pass：分支、脏文件集合、以及相对
+   上一次 pass 出现/改动/消失的文件。V1 没有守护进程，"watch" 的定义就是**两次读取相减**，
+   上次快照存在 `settings` 一行里。新增 `GIT_BRANCH_CHANGED` / `GIT_STATUS_CHANGED` 两个事件类型
+   （藏进 `GIT_COMMIT` 会把"工作树变脏"说成"有一个 commit"）；文件三种变化共用 `FILE_CHANGED`
+   ＋ payload `change ∈ {created, modified, deleted, baseline}`。projector 把两类 git 信号
+   与 `TEST_*` / `BUILD_*` 一起放进"记录但不改状态"的分组——**监听是证据，永远不是完成**（§19）。见 ADR-022。
+5. **§59 / §60 预算（Stage H Performance）**——`crates/state-engine/tests/budgets.rs`（6 条）＋
+   `crates/search/tests/budgets.rs`（2 条）。只有两条计时断言：纯折叠 1200 事件 ≤250 ms
+   （实测 ~40 ms），整条链含 SQLite ≤20 s（实测 ~6 s，是 hang/O(n²) 的 tripwire 而不是 benchmark，
+   失败时打印分段耗时）。其余全部是**工作量断言**：读了几行、拉了几条事件、扫了几个候选。
+   §60 的成本规则最终落在 `no_manifest_in_the_workspace_reaches_a_network_or_a_model`——
+   扫 10 个 crate ＋ apps/cli 共 11 份 Cargo.toml，禁网络/模型/async 依赖，rusqlite 只允许出现在
+   `crates/storage`。见 ADR-027。
+6. **§52 L3 近似重复：只提示，不删除**——`crates/ingestion/src/near_duplicate.rs` ＋
+   `wp duplicates [--conversation] [--threshold] [--window] [--limit]`。词法 Jaccard，默认阈值
+   0.8，窗口 240，CJK 按字符 bigram 比较（一整串汉字在 unicode61 里是一个 token，否则两条中文
+   复述永远得 0 分）；`similarity_upper_bound` 先按集合大小剪掉不可能达标的对，把平方级压住。
+   每条提示自带 `conversationId` 与那句 note（"两条都还在库里，没有合并、删除或改写"），
+   所以提示可以按会话复查，也可以被证伪。语义版留给 AEP-002。见 ADR-024。
+7. **§58 adapter 契约补齐 `inject` / `fallback` ＋契约测试**——七个动词现在全在
+   `AgentAdapter` 上；写侧默认 `Ok(None)`，`fallback` 是唯一**不能不答**的动词，返回
+   `Fallback { adapterId, instruction, deepLink, payloadPath }`。`crates/ingestion/tests/contract.rs`
+   对每个内置 adapter 跑同一份 review，并且 review 有反向对照（`an_adapter_may_not_answer_a_verb_
+   it_did_not_advertise`）——没有负控，默认方法体会让一个空 adapter 也看起来合规。V1 不发布任何
+   真会往 agent 里写字的 adapter（§37 从不声明 `AUTO_EXECUTE`）。见 ADR-025。
+8. **§38.5 MCP 基础接口**——新 crate `crates/mcp-server` ＋ `wp-mcp` 二进制。stdio
+   换行分隔 JSON-RPC 2.0：`initialize` / `ping` / `tools/list` / `tools/call` ＋
+   `notifications/initialized`（必须静默）。六个工具全是读：`project_state`、`project_map`、
+   `project_timeline`、`search`、`open_evidence`、`context_pack`，每一个都走 CLI 已经在用的
+   service 与 `Repositories` 端口——第二扇门，不是第二套实现。`context_pack` 过同一个 Policy
+   Filter、留同一条 §54 audit。项目解析顺序与 `wp` 一致，两个项目又不指名时报错并**列出两个
+   名字**而不是猜。见 ADR-026。
+
+### FILES CHANGED
+
+```text
+apps/cli/src/backup.rs                  新：§55/§62 备份四个子命令（含 --yes 与自恢复守卫）
+apps/cli/src/app.rs                     App 增加 maintenance 句柄（不属于 Repositories）
+apps/cli/src/views.rs                   +Evidence 子命令 +Duplicates 子命令（约 180 行）
+apps/cli/src/capture.rs                 +Watch 子命令；git/file 两条 pass 接到 CLI
+apps/cli/src/main.rs / lib.rs           注册 backup 模块与命令
+apps/cli/tests/cli_e2e.rs               11 → 17 条：evidence / backup / adapters / watch(×2) /
+                                        near-duplicate / 追加一轮 adapter 判词
+crates/core/src/ports.rs                +AdapterRepository（record_state/get_state/list_states）
+                                        +DatabaseMaintenance（backup_to/integrity_check/inspect/
+                                         restore/schema_version）+BackupReport::restorable
+crates/domain/src/agent.rs              +AdapterHealth 四值 +AdapterState +Fallback（§58 最后动词）
+crates/domain/src/event_catalog.rs      +GIT_BRANCH_CHANGED / GIT_STATUS_CHANGED，进 ALL
+crates/storage/src/conversation.rs      AdapterRepository 实现；recent_messages 补 rowid DESC  tie-break
+crates/storage/src/backup.rs            新：在线备份 / 校验 / 恢复，两个方向同一 API
+crates/storage/src/lib.rs               注册 backup 模块
+crates/storage/src/schema.rs            （沿用 v1 已冻结的 adapter_states 表，无新 migration）
+crates/state-engine/src/projector.rs    两类 git 信号进入"记录不改状态"分组；证据类型归 Git
+crates/state-engine/tests/budgets.rs    新：6 条 §59/§60 预算，含 workspace manifest 扫描
+crates/search/tests/budgets.rs          新：2 条检索工作量预算（不随库变大而变贵／只要所要的）
+crates/ingestion/src/adapter.rs         §58 七个动词齐；inject / fallback 默认实现
+crates/ingestion/src/near_duplicate.rs  新：L3 词法近似重复提示（7 条单测）
+crates/ingestion/src/pipeline.rs        每次运行写 AdapterState；游标失败 → degraded
+crates/ingestion/src/git_facts.rs       +watch_workspace（分支/脏集合与上次 pass 相减）
+crates/ingestion/tests/health.rs        新：5 条判词（ok/unavailable/degraded/failed/覆盖）
+crates/ingestion/tests/watch.rs         新：6 条监听（含"状态一模一样"）
+crates/ingestion/tests/near_duplicate.rs 新：7 条提示与只读性
+crates/ingestion/tests/contract.rs      新：10 条 §58 契约 review，含负控与手写 fallback
+crates/mcp-server/**                    新 crate：lib.rs（协议与调度）/ tools.rs（六个读）/
+                                        main.rs（wp-mcp）/ tests/mcp.rs（12 条，含真二进制 spawn）
+Cargo.toml                              workspace 加 members 与 vibe-mcp-server 依赖
+docs/adr/ADR-021..027                   新：七个决定
+docs/adr/ADR-016                        修订：MCP 从"未做"移到"已做"
+docs/adr/ADR-020                        修订：两个表面（wp 给人 / wp-mcp 给 agent），规则不变；e2e 11 → 17
+docs/evolution/AEP-002                  补：§52 L3 已有词法版本，触发条件不变
+docs/adr/README.md                      索引补 ADR-021…027，并把两条 amended 标出来
+```
+
+### TEST STATUS
+
+`cargo test --workspace` = **247 passed / 0 failed / 1 ignored**（上一轮 187/0/1）。
+ignored 仍是需要显式 `VIBE_SECURITY_ALLOW_KEYCHAIN=1` 的 Keychain 测试。构建零 warning。
+
+新增分布：storage backup 6、state-engine budgets 6、search budgets 2、ingestion health 5、
+ingestion watch 6、ingestion near_duplicate 7、ingestion contract 10、mcp-server 12、
+CLI e2e +6。
+
+### DECISIONS MADE
+
+- ADR-021：adapter 健康只有四种结局，且按 adapter id 存一行、最后一次运行覆盖前一次；
+  历史属于事件日志与 §54 audit，不在这里再造一个 append 表。
+- ADR-022：监听信号是事件；文件三种变化共用 `FILE_CHANGED` ＋ payload 动词，git 两个信号
+  各得自己的类型；reducer 不为它们改任何 Project State。
+- ADR-023：备份与恢复都走 SQLite 的在线备份 API；维护能力是**独立端口**，不是 `Repositories`
+  的第 12 个字段——项目逻辑没有一处需要把数据库当文件读。
+- ADR-024：L3 只做词法近似、只出提示；提示带会话 id 与自我声明的 note。顺带修了一个真缺陷：
+  `recent_messages` 的窗口只按 `observed_at` 排，批量导入的每行时间戳相同，于是同库两次扫描
+  可能给出不同提示——加 `rowid DESC` 后窗口确定。
+- ADR-025：`fallback` 是必须能答的动词；契约 review 以"能力诚实"为核心并有负控。
+- ADR-026：MCP 只有 stdio、只有读；工具名不得写成写动词的样子；三类失败分清
+  （协议错误 / 客户端参数错误 / workbench 的 `isError` 结果）。
+- ADR-027：预算优先是可复现的工作量，计时只留两条并附上实测值；§60 用依赖声明钉死。
+- 修订 ADR-016 与 ADR-020 而不是新开一条：MCP 落地让"V1 只有一个表面"这句过时了，但它没有改变
+  决定本身——两个表面（`wp` 给人、`wp-mcp` 给 agent）仍然都不许藏逻辑，界面仍然是展示层。
+  ADR 记录的是今天为真的东西，所以就地修订并标 `amended`，不叠第二份说法。
+
+### AEP IMPACT
+
+- AEP-002（FTS → 混合检索）：新增一段说明——§52 L3 的词法版已经存在，形态（候选对＋分数＋
+  note＋没有写路径）就是语义版要接的形状；触发条件不变，仍然是"用户自己项目里错过的证据"。
+- AEP-003（内置 → 插件 adapter）：`contract.rs` 的 review 现在可以对外部 adapter 复用，
+  这是插件化的前置形状；本轮仍未提前做插件加载（禁止 8）。
+- AEP-004（词法规则 → 智能 drift）：未触发。
+- AEP-001（本地 → 云同步）：未触发；`adapter_states` 依旧按 adapter id 全局一行，没有加项目维度。
+- AEP-005（平面 state → graph）：未触发；`entity_links` 仍是 L3 关系层的地基。
+
+### KNOWN ISSUES
+
+1. **`wp watch` 是手动一次 pass**，不是常驻监听。没有 notify、没有定时器——V1 的验收只要求
+   "改动能成为证据"，一条守护进程要命的生命周期与配置文件本轮没人需要（ADR-022 的 3）。
+2. **MCP 只有 stdio，没有 prompts / resources / sampling / 工具注解**。§38.5 说的是"基础接口"，
+   超出的部分等真实客户端要求再说（ADR-026）。
+3. **`inject` 对所有内置 adapter 仍返回 `None`**。契约齐了，能写字的传输一个都没发布：
+   §7.8 发送是人的动作，浏览器扩展与真 app 注入是下一轮的事。
+4. **备份不含秘密值**，这是设计而不是遗漏（ADR-017）；反过来说：换机器时 `secret_ref` 指向的
+   文件必须一起搬，restore 之后策略仍然要求 Keychain 或那个 0600 文件在场，否则读秘密会失败。
+5. **性能计时在 debug 构建上跑**（`profile.dev.debug = 0`，无 LTO）。相对关系稳定，绝对值
+   不代表 release；所以两条计时预算都留了很大余量，真正的门是工作量断言。
+6. **中文检索的分词盲区与 feature_creep 刷屏**（第一轮遗留）仍在：前者等 trigram 或 AEP-002，
+   后者等界面聚合。本轮没顺手改，因为两者都不在 V1 验收项上。
+7. **V1-E 桌面界面与 V1-D 浏览器扩展仍未做**，理由与边界见 ADR-016（本轮已修订）。
+
+### DRIFT CHECK
+
+- `crates/*/Cargo.toml` 与 `apps/*/Cargo.toml` 的依赖扫描已经变成测试
+  （`no_manifest_in_the_workspace_reaches_a_network_or_a_model`），本轮新增的 `crates/mcp-server`
+  已在扫描名单里：它没有网络依赖、没有模型依赖、没有 rusqlite，rusqlite 仍然只在 `crates/storage`。
+- 对自己的新代码跑自己的规则：`wp watch` 一轮之后 `wp state show --json` 的 `stateHash` 不变
+  （`watch_signals_fold_into_no_project_state_at_all` 钉住），监听写出的每一条都能被
+  `wp timeline` 指认——证据腿（§17）和状态腿（§20）没有互相冒充。
+- `wp duplicates` 的只读性有两条独立证明：库内消息计数在扫描前后不变（模块没有写路径），
+  以及同一批材料再导入一次仍报同样数量的 duplicate 而不是更少（CLI e2e）。
+- MCP 的六个工具全部经端口读；`context_pack` 走 `ContextCompiler`，测试断言 §54 audit 里
+  出现了这条读取——"通过管道读项目"没有变成"读项目而不留痕"。
+- 本轮没有把任何逻辑从 crate 搬回 CLI；CLI 只做参数解析、调 service、排版输出（禁止 4）。
+
+### NEXT IMMEDIATE TARGET
+
+V1-E Workbench：Tauri 2 桌面壳承载已经编译好、也已经钉上测试的视图
+（Overview / Timeline / Project Map / Decisions / Drift + Inbox / Search / Context Preview），
+再加上本轮新出现的三个面板原料：`wp adapters` 的判词、`wp duplicates` 的提示、`wp backup status`
+的完整性结论。界面自己不解释事件、不拼状态，一切读回现有端口。
+之后是 V1-D 的浏览器扩展 + Native Messaging——那才是 ADR-025 里 `inject` / `open` 第一次
+真正被实现的时刻。
+
+---
+
 ## 2026-10-03 · V1 第一轮：核心闭环可运行（Stage A/B/C/D/F/G/H，CLI 表面）
 
 ### LAST COMPLETED

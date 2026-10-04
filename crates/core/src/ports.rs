@@ -2,16 +2,21 @@
 //! project logic and a concrete store, so nothing in this crate (or any crate
 //! that depends on it) may mention SQLite, rusqlite or a cloud SDK.
 //!
-//! The eight ports named in §6 are all here. Two more were added because the
+//! The eight ports named in §6 are all here. Three more were added because the
 //! documented tables deserve their own contract: [`EvidenceRepository`] and
-//! [`AuditRepository`] (see docs/adr/ADR-013).
+//! [`AuditRepository`] (see docs/adr/ADR-013), and [`AdapterRepository`] for
+//! `adapter_states` (see docs/adr/ADR-021).
+//!
+//! [`DatabaseMaintenance`] is the one port deliberately absent from [`Repositories`]:
+//! no project logic reads the database as a file, so only the workbench surface holds it.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use vibe_domain::{
-    ArchitectureBaseline, Artifact, AuditLog, Conversation, Evidence, EvidenceType, Message,
-    Project, ProjectCharter, ProjectEvent, ProjectEventPatch, ScopeBoundary, Source, SyncCursor,
-    UserOverride,
+    AdapterState, ArchitectureBaseline, Artifact, AuditLog, Conversation, Evidence, EvidenceType,
+    Message, Project, ProjectCharter, ProjectEvent, ProjectEventPatch, ScopeBoundary, Source,
+    SyncCursor, UserOverride,
 };
 
 use crate::error::{CoreError, Result};
@@ -264,6 +269,16 @@ pub trait SearchIndex: Send + Sync {
     fn related(&self, kind: &str, id: &str) -> Result<Vec<SearchHit>>;
 }
 
+/// What each adapter's last run did to it (§51 partial failure, Stage H Adapter Health,
+/// §62 Degradation). Keyed by adapter id alone, because a source that is not on this
+/// machine is not on it for any project.
+pub trait AdapterRepository: Send + Sync {
+    /// The verdict replaces the previous one rather than appending history.
+    fn record_state(&self, state: &AdapterState) -> Result<()>;
+    fn get_state(&self, adapter_id: &str) -> Result<Option<AdapterState>>;
+    fn list_states(&self) -> Result<Vec<AdapterState>>;
+}
+
 pub trait SettingsRepository: Send + Sync {
     fn get_json(&self, key: &str) -> Result<Option<serde_json::Value>>;
     fn set_json(&self, key: &str, value: &serde_json::Value) -> Result<()>;
@@ -288,4 +303,54 @@ pub struct Repositories {
     pub search: Arc<dyn SearchIndex>,
     pub settings: Arc<dyn SettingsRepository>,
     pub audit: Arc<dyn AuditRepository>,
+    pub adapters: Arc<dyn AdapterRepository>,
+}
+
+/// What a database file claims to be (§55 Recovery). `integrity` is SQLite's own verdict
+/// — the string `"ok"` or its first complaint — so a backup can be proved whole before
+/// anything is allowed to depend on it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupReport {
+    pub pages: i64,
+    pub page_size: i64,
+    pub schema_version: i64,
+    pub events: i64,
+    pub projects: i64,
+    pub integrity: String,
+}
+
+impl BackupReport {
+    /// A restore is only safe against a file this build can read *and* that is whole.
+    pub fn restorable(&self, known_version: i64) -> std::result::Result<(), String> {
+        if self.schema_version > known_version {
+            return Err(format!(
+                "backup is schema version {}, this build knows {known_version}",
+                self.schema_version
+            ));
+        }
+        if self.integrity != "ok" {
+            return Err(format!("backup failed its integrity check: {}", self.integrity));
+        }
+        Ok(())
+    }
+}
+
+/// Database upkeep the workbench surface needs but no project logic does: backup, verify,
+/// restore. Paths are the only storage concept that crosses this port — what lives behind
+/// them stays the store's business (§7.5), including which schema version this build knows.
+pub trait DatabaseMaintenance: Send + Sync {
+    /// Copy the live database into `dest` without closing it, so a WAL workbench stays
+    /// readable while it is being backed up. The report describes the copy.
+    fn backup_to(&self, dest: &Path) -> Result<BackupReport>;
+    fn integrity_check(&self) -> Result<String>;
+    /// Read a backup file for what it says about itself, touching nothing.
+    fn inspect(&self, source: &Path) -> Result<BackupReport>;
+    /// Replace the live database's content with a backup's, refusing a file that is not a
+    /// workbench database, is newer than this build, or fails its integrity check. An older
+    /// schema is migrated forward afterwards, because the copied pages carry the backup's
+    /// schema rather than this build's.
+    fn restore(&self, source: &Path) -> Result<BackupReport>;
+    /// The newest schema version this build can create.
+    fn schema_version(&self) -> Result<i64>;
 }

@@ -242,11 +242,15 @@ impl Projector {
             event_catalog::GIT_COMMIT => self.git_commit(ev),
             // §19/§39: a test or build result is evidence about its subject. A
             // completion confirmation may cite it; it never completes work itself,
-            // so the reducer changes no state for it.
+            // so the reducer changes no state for it. The same is true of the watcher's
+            // branch and status signals: a dirty tree says where the work is, not that
+            // any of it is finished (§39).
             event_catalog::TEST_PASSED
             | event_catalog::TEST_FAILED
             | event_catalog::BUILD_PASSED
             | event_catalog::BUILD_FAILED
+            | event_catalog::GIT_BRANCH_CHANGED
+            | event_catalog::GIT_STATUS_CHANGED
             | event_catalog::PROJECT_CREATED
             // Charter, scope and project identity live in the versioned baseline
             // tables (禁止 4: one state source), so these are recorded, not folded.
@@ -1105,7 +1109,9 @@ fn default_subject(event_type: &str) -> Option<EntityKind> {
 
 fn evidence_type_for(ev: &ProjectEvent) -> EvidenceType {
     match ev.r#type.as_str() {
-        event_catalog::GIT_COMMIT => EvidenceType::Git,
+        event_catalog::GIT_COMMIT
+        | event_catalog::GIT_BRANCH_CHANGED
+        | event_catalog::GIT_STATUS_CHANGED => EvidenceType::Git,
         event_catalog::TEST_PASSED | event_catalog::TEST_FAILED => EvidenceType::Test,
         event_catalog::BUILD_PASSED | event_catalog::BUILD_FAILED => EvidenceType::Build,
         event_catalog::FILE_CHANGED

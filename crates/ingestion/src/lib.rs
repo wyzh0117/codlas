@@ -26,6 +26,7 @@ pub mod adapter;
 pub mod adapters;
 pub mod file_scan;
 pub mod git_facts;
+pub mod near_duplicate;
 pub mod normalizer;
 pub mod pipeline;
 
@@ -36,8 +37,14 @@ pub use file_scan::{
 };
 pub use git_facts::{
     log_format, CommandOutcome, CommandRunner, CommitRecord, GitFileStatus, GitFacts,
-    GitFactsReport, ProcessCommandRunner, RecordedCommits, TouchedFile, DEFAULT_MAX_COMMITS,
-    READ_ONLY_GIT,
+    GitFactsReport, ProcessCommandRunner, RecordedCommits, TouchedFile, WorkspaceSnapshot,
+    WorkspaceWatchReport, DEFAULT_MAX_COMMITS, READ_ONLY_GIT,
 };
 pub use normalizer::{Normalizer, RawTurn};
-pub use pipeline::{AdapterReport, CapturedCandidate, IngestPipeline, IngestReport, MergeCandidate};
+pub use near_duplicate::{
+    scan as scan_near_duplicates, similarity, similarity_upper_bound, tokens, NearDuplicate,
+    DEFAULT_THRESHOLD, DEFAULT_WINDOW, NOTE,
+};
+pub use pipeline::{
+    AdapterReport, CapturedCandidate, IngestPipeline, IngestReport, MergeCandidate, report_health,
+};

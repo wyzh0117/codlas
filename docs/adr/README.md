@@ -1,8 +1,9 @@
 # ADR index
 
-V1_DEVELOPMENT §57's starting list, plus the records this implementation round needed because
-it made a choice the docs had not already frozen. An ADR here states what is true of the code
-today; forward-looking architecture intent belongs in `docs/evolution/` as an AEP.
+V1_DEVELOPMENT §57's starting list, plus the records the two implementation rounds needed because
+they made a choice the docs had not already frozen. An ADR here states what is true of the code
+today; forward-looking architecture intent belongs in `docs/evolution/` as an AEP. An ADR whose
+claims a later round changed is amended in place and marked `amended`, not replaced.
 
 | id | title | status |
 | --- | --- | --- |
@@ -21,11 +22,18 @@ today; forward-looking architecture intent belongs in `docs/evolution/` as an AE
 | ADR-013 | One `entities` table with a JSON payload | accepted (deviation from §49, allowed by §50); key corrected by migration v3 |
 | ADR-014 | Event identity: store-assigned `seq`, actor and status in the dedup key | accepted (fixes a real defect) |
 | ADR-015 | Drift rules are lexical in V1, and they only ever propose | accepted |
-| ADR-016 | What this round deliberately does not include | accepted |
+| ADR-016 | What this round deliberately does not include | accepted, amended 2026-10-05 — §38.5's MCP surface is built; Tauri and the extension stay deferred |
 | ADR-017 | The system keychain is opt-in; the default secret store is a 0600 file | accepted (a deliberate reading of §53) |
 | ADR-018 | The full-text index stores prose, not the record's encoding | accepted (fixes four CLI-visible defects) |
 | ADR-019 | `.projectpack` is a stored zip that announces it is a projection | accepted |
-| ADR-020 | V1's user surface is the CLI; two test layers, one implementation | accepted |
+| ADR-020 | V1's user surface is the CLI; two test layers, one implementation | accepted, amended 2026-10-05 — `wp-mcp` is a second door over the same ports, not a second implementation |
+| ADR-021 | An adapter's health has four outcomes; the last run replaces the one before | accepted |
+| ADR-022 | Watch signals are events with a verb in the payload, and they move no state | accepted |
+| ADR-023 | A backup is an online copy, made and restored through SQLite's own backup API | accepted |
+| ADR-024 | Level-3 near-duplicates are lexical hints; the read window got a deterministic tie-break | accepted |
+| ADR-025 | The adapter contract answers all seven verbs, and only what it advertised | accepted |
+| ADR-026 | The MCP surface is a second door onto the same ports, and it only opens inward | accepted |
+| ADR-027 | A performance budget is a work count first and a stopwatch number second | accepted |
 
 A gap in the §57 list is deliberate rather than an oversight: ADR-003, 005, 006, 007, 008,
 009, 010 and 012 are recorded in PROJECT_MASTER §7 and §19 with enough force that a separate

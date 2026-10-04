@@ -2,6 +2,7 @@
 //! surface a user drives — one implementation of the closed loop, not two.
 
 pub mod app;
+pub mod backup;
 pub mod baseline;
 pub mod capture;
 pub mod context;

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>构览 Codlas · V1 第二轮开发报告（2026-10-05）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --ink:#e6e9ef; --muted:#9aa4b2;
+    --line:#252b35; --ok:#3fb950; --warn:#d29922; --no:#f85149; --accent:#58a6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif}
+  main{max-width:1080px;margin:0 auto;padding:40px 24px 96px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+  h2{font-size:19px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+  p{margin:10px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12.5px;color:var(--muted)}
+  .badge b{color:var(--ink);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h4{margin:0 0 4px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .card .v{font-size:22px;font-weight:650}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel);color:var(--muted);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+  td code,li code,p code{background:#1c2230;border:1px solid var(--line);border-radius:4px;
+    padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ok{color:var(--ok);font-weight:600}
+  .warn{color:var(--warn);font-weight:600}
+  .no{color:var(--no);font-weight:600}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid #24313f}
+  a:hover{border-bottom-color:var(--accent)}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:4px 0}
+  pre{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .callout{border-left:3px solid var(--accent);background:var(--panel);
+    padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  nav{position:sticky;top:0;background:rgba(15,17,21,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin:-40px -24px 28px;z-index:2}
+  nav .in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+  nav a{border:0;color:var(--muted)}
+  nav a:hover{color:var(--accent)}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+
+<nav><div class="in">
+  <a href="#scope">本轮范围</a>
+  <a href="#items">逐项交付</a>
+  <a href="#defects">顺带修掉的缺陷</a>
+  <a href="#tests">测试与预算</a>
+  <a href="#docs">回写的文档</a>
+  <a href="#boundary">边界自检</a>
+  <a href="#deferred">仍然没做</a>
+  <a href="#run">怎么跑</a>
+</div></nav>
+
+<h1>构览 Codlas · V1 第二轮开发报告</h1>
+<div class="sub">把 V1 开发文档里<strong>未完成与完成一半</strong>的部分补齐 · 2026-10-05 · 分支 <code>main</code> · 私有仓库 <code>wyzh0117/codlas</code></div>
+
+<div class="badges">
+  <span class="badge">测试 <b>247 passed · 0 failed · 1 ignored</b></span>
+  <span class="badge">构建 warning <b>0</b></span>
+  <span class="badge">本轮任务 <b>8 / 8 完成</b></span>
+  <span class="badge">新增 ADR <b>ADR-021 … ADR-027</b></span>
+  <span class="badge">Workspace <b>9 crates + 1 MCP server + 1 CLI</b></span>
+</div>
+
+<div class="grid">
+  <div class="card"><h4>上一轮 → 本轮</h4><div class="v">187 → 247</div><div class="sub">测试总数（+60）</div></div>
+  <div class="card"><h4>CLI 子命令</h4><div class="v">29</div><div class="sub">本轮新增 evidence / duplicates / watch / backup / adapters</div></div>
+  <div class="card"><h4>端口数量</h4><div class="v">11</div><div class="sub">+ AdapterRepository；维护能力另立端口</div></div>
+  <div class="card"><h4>MCP 工具</h4><div class="v">6 读 / 0 写</div><div class="sub">§38.5 基础接口</div></div>
+</div>
+
+<h2 id="scope">一、本轮范围与结论</h2>
+<p>第一轮把 §7.2 那条链跑通了：<code>Source → Event → Reducer → Project State → PROJECT_MAP → Context Pack → Agent</code>。
+本轮不扩展产品概念（§19 禁止 8），只把开发文档里<strong>留下缺口或做了一半</strong>的八项做完，并把每一项都落到可运行的
+CLI 命令、端口或 crate 上，配上能失败的测试：</p>
+<ul>
+  <li>§17 / §45 证据读取入口 <code>wp evidence</code></li>
+  <li>§55 备份侧 + §62 Recovery：<code>wp backup create|status|verify|restore</code></li>
+  <li>Stage H Adapter Health + <code>wp adapters</code></li>
+  <li>§39 监听事件 + <code>wp watch</code></li>
+  <li>§59 / §60 性能与成本预算（Stage H Performance）</li>
+  <li>§52 L3 近似重复：<strong>只提示，不删除</strong> + <code>wp duplicates</code></li>
+  <li>§58 Adapter Contract 补齐 <code>inject</code> / <code>fallback</code> 与契约测试</li>
+  <li>§38.5 MCP 基础接口：新 crate <code>crates/mcp-server</code> + <code>wp-mcp</code> 二进制</li>
+</ul>
+<div class="callout">
+  <strong>一句话结论：</strong>V1 的核心、采集、上下文、防偏航与加固五项现在都有可读、可测、可恢复的表面；
+  还缺的只有<strong>界面本身</strong>——V1-E 的 Tauri 桌面壳与 V1-D 的浏览器扩展 + Native Messaging。
+  这两项按 ADR-016 仍然是有意推迟，而不是遗漏。
+</div>
+
+<h2 id="items">二、逐项交付</h2>
+<table>
+  <thead><tr><th style="width:16%">文档条目</th><th style="width:8%">状态</th><th>落在哪里</th><th style="width:30%">怎么被验证</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>§17 / §45 证据腿可读<br><span class="sub">Stage E 验收</span></td>
+    <td class="ok">完成</td>
+    <td><code>wp evidence &lt;kind:id&gt;</code>（<a href="apps/cli/src/views.rs">apps/cli/src/views.rs</a>）；读 <code>EvidenceRepository::for_subject</code></td>
+    <td><code>cli_e2e.rs::a_decision_opens_onto_the_evidence_it_cites</code>——一个 decision 打开它引用的 message 证据</td>
+  </tr>
+  <tr>
+    <td>§55 备份 + §62 Recovery<br><span class="sub">Stage H</span></td>
+    <td class="ok">完成</td>
+    <td><a href="crates/storage/src/backup.rs">crates/storage/src/backup.rs</a>（SQLite 在线备份 API，两个方向同一机制）+ <a href="apps/cli/src/backup.rs">apps/cli/src/backup.rs</a>；能力挂在<strong>独立端口</strong> <code>DatabaseMaintenance</code>，不进 <code>Repositories</code>（<a href="docs/adr/ADR-023-a-backup-is-an-online-copy-in-both-directions.md">ADR-023</a>）</td>
+    <td>storage 6 条（<code>restoring_discards_what_was_recorded_after_the_backup</code>、<code>an_unrelated_sqlite_file_is_refused_as_a_backup</code> …）+ CLI <code>a_backup_returns_the_workbench_to_an_earlier_moment</code></td>
+  </tr>
+  <tr>
+    <td>Stage H Adapter Health<br><span class="sub">§51 / §62 Degradation</span></td>
+    <td class="ok">完成</td>
+    <td>第 11 个端口 <code>AdapterRepository</code>；<code>AdapterHealth = ok | unavailable | degraded | failed</code>；pipeline 每次运行写判词；<code>wp adapters</code>（<a href="docs/adr/ADR-021-adapter-health-has-four-outcomes.md">ADR-021</a>）</td>
+    <td><a href="crates/ingestion/tests/health.rs">health.rs</a> 5 条：干净运行、来源不在场（<em>unavailable 而非 failed</em>）、失败保留错误文本、第二次运行覆盖而非堆历史、材料落地但游标坏掉 → degraded</td>
+  </tr>
+  <tr>
+    <td>§39 监听事件</td>
+    <td class="ok">完成</td>
+    <td><code>wp watch</code>；<code>GIT_BRANCH_CHANGED</code> / <code>GIT_STATUS_CHANGED</code> 新类型，文件侧沿用 <code>FILE_CHANGED</code> + payload 动词 <code>created/modified/deleted/baseline</code>；V1 无守护进程——watch = 两次 pass 相减（<a href="docs/adr/ADR-022-watch-signals-are-events-that-move-no-state.md">ADR-022</a>）</td>
+    <td><a href="crates/ingestion/tests/watch.rs">watch.rs</a> 6 条，含 <code>watch_signals_fold_into_no_project_state_at_all</code>（监听写事件但 <code>stateHash</code> 一字不变）与"没有仓库的目录如实报告"；CLI 2 条</td>
+  </tr>
+  <tr>
+    <td>§59 / §60 性能与成本预算</td>
+    <td class="ok">完成</td>
+    <td><a href="crates/state-engine/tests/budgets.rs">state-engine/tests/budgets.rs</a>、<a href="crates/search/tests/budgets.rs">search/tests/budgets.rs</a>（<a href="docs/adr/ADR-027-performance-budgets-are-work-counts.md">ADR-027</a>）</td>
+    <td>1200 事件的纯折叠 ≤250 ms（实测 ~40 ms）且两次同 hash；整条链 ≤20 s 只作 hang / O(n²) tripwire（实测 ~6 s，失败时打印分段耗时）；其余全是工作量断言；§60 由 11 个 manifest 的依赖扫描钉死</td>
+  </tr>
+  <tr>
+    <td>§52 L3 近似重复<br><span class="sub">只提示，不直接删除</span></td>
+    <td class="ok">完成</td>
+    <td><a href="crates/ingestion/src/near_duplicate.rs">near_duplicate.rs</a> 词法 Jaccard（默认 0.8、窗口 240、CJK 字符 bigram）+ <code>wp duplicates</code>；<code>similarity_upper_bound</code> 先剪掉不可能达标的对（<a href="docs/adr/ADR-024-near-duplicates-are-lexical-hints.md">ADR-024</a>）</td>
+    <td>模块 7 条（含 <code>the_pass_holds_no_way_to_write</code>）+ CLI 1 条：同批材料<strong>再导入一次</strong>仍报同样数量的 duplicate，用数据库自己的回答证明没有删除</td>
+  </tr>
+  <tr>
+    <td>§58 Adapter Contract<br><span class="sub">七个动词</span></td>
+    <td class="ok">完成</td>
+    <td><a href="crates/ingestion/src/adapter.rs">adapter.rs</a> 的 <code>detect / capabilities / ingest / open / prepare / inject / fallback</code> 齐备；<code>fallback</code> 是唯一<strong>不能不答</strong>的动词（返回 <a href="crates/domain/src/agent.rs">Fallback</a>）（<a href="docs/adr/ADR-025-adapter-contract-answers-seven-verbs.md">ADR-025</a>）</td>
+    <td><a href="crates/ingestion/tests/contract.rs">contract.rs</a> 10 条：四个内置 adapter 全过 review，外加<strong>负控</strong> <code>an_adapter_may_not_answer_a_verb_it_did_not_advertise</code> 与只实现必需动词的 <code>Bare</code></td>
+  </tr>
+  <tr>
+    <td>§38.5 MCP 基础接口</td>
+    <td class="ok">完成</td>
+    <td>新 crate <a href="crates/mcp-server/src/lib.rs">crates/mcp-server</a>（stdio 换行分隔 JSON-RPC 2.0）+ <a href="crates/mcp-server/src/tools.rs">tools.rs</a>（六个只读工具）+ <a href="crates/mcp-server/src/main.rs">wp-mcp</a>；<code>context_pack</code> 过同一个 Policy Filter 并留 §54 audit（<a href="docs/adr/ADR-026-mcp-is-a-second-door-not-a-second-implementation.md">ADR-026</a>）</td>
+    <td><a href="crates/mcp-server/tests/mcp.rs">mcp.rs</a> 12 条，含 <code>the_built_binary_serves_a_real_pipe</code>（真二进制 spawn：stdout 只有协议、诊断在 stderr、stdin 关闭是干净退出）与项目隔离、三类失败分清</td>
+  </tr>
+  </tbody>
+</table>
+
+<h2 id="defects">三、顺带修掉的三个真缺陷</h2>
+<p>都不是为了让学生代码通过而放宽断言，而是测试先失败、根因在实现里：</p>
+<ul>
+  <li><strong>读取窗口不确定。</strong><code>recent_messages</code> 只按 <code>observed_at DESC</code> 排序，而批量导入给每一行盖的是同一个时间戳——
+    于是同一个库两次扫描可能给出不同的近似重复提示。补 <code>rowid DESC</code>（store 分配、单调）作为 tie-break。
+    这动摇的是 §7.2 的确定性重放承诺，不只是界面观感。<br><span class="sub"><a href="crates/storage/src/conversation.rs">crates/storage/src/conversation.rs</a></span></li>
+  <li><strong>事件日志方向反了。</strong>store 为了 <code>LIMIT</code> 取的是"最近若干条"并以 <code>seq DESC</code> 返回；
+    MCP 的 <code>project_timeline</code> 承诺"oldest first"，所以截断保留、方向翻转。测试断言四条事件的类型序列与游标窗口内容后才暴露它。<br><span class="sub"><a href="crates/mcp-server/src/tools.rs">crates/mcp-server/src/tools.rs</a></span></li>
+  <li><strong>契约测试差点自证成功。</strong>带默认方法体的 trait 让一个"什么都不做"的 adapter 也能通过七动词检查。
+    加了负控 fixture（声称 <code>PREPARE_PAYLOAD</code> 却交不出 payload）之后，review 才被证明会点名。<br><span class="sub"><a href="crates/ingestion/tests/contract.rs">crates/ingestion/tests/contract.rs</a></span></li>
+</ul>
+
+<h2 id="tests">四、测试与预算</h2>
+<p><code>cargo test --workspace</code> = <strong>247 passed / 0 failed / 1 ignored</strong>（上一轮 187），构建零 warning。
+ignored 仍是需要 <code>VIBE_SECURITY_ALLOW_KEYCHAIN=1</code> 的 Keychain 测试。</p>
+<table>
+  <thead><tr><th>层面</th><th>数量</th><th>代表</th></tr></thead>
+  <tbody>
+    <tr><td>CLI 端到端（驱动真实 <code>wp</code> 二进制）</td><td>17</td><td>本轮 +6：evidence / backup / adapters / watch ×2 / duplicates</td></tr>
+    <tr><td>Golden（库级整条闭环）</td><td>7</td><td>四条固定输入重放，drift 报警不得改写 Charter</td></tr>
+    <tr><td>MCP 协议与工具</td><td>12</td><td>握手、目录、六个工具、三类失败、真进程管道</td></tr>
+    <tr><td>Adapter 契约 + 健康</td><td>15</td><td>contract 10 + health 5</td></tr>
+    <tr><td>监听 + 近似重复</td><td>13</td><td>watch 6 + near_duplicate 7</td></tr>
+    <tr><td>备份 / 恢复</td><td>6</td><td>在线备份、完整性、拒绝陌生文件、恢复即丢弃</td></tr>
+    <tr><td>性能与成本预算</td><td>8</td><td>state-engine 6 + search 2</td></tr>
+    <tr><td>其余（core / domain / storage / state / guard / context / ingestion / security / search）</td><td>169</td><td>单元测试与既有集成测试，247 − 本表点名的 78</td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <strong>关于那两个时间数字：</strong>只有两处计时断言，且都附了实测值与余量。纯折叠 250 ms 是"从算术退化成 round trip"的门；
+  整条链 20 s 只用来抓挂死和 O(n²)，不代表产品 SLO。其余预算全部是可复现的工作量——读了多少行、拉了多少事件、扫了多少候选。
+</div>
+
+<h2 id="docs">五、本轮回写的文档</h2>
+<p>按 PROJECT_MASTER §23 / §24：总控只留四个块，流水留在记录里，重大决定各写一条 ADR。</p>
+<h3>总控文件</h3>
+<ul>
+  <li><a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a> — §20「当前项目位置」四个块（CURRENT DEVELOPMENT STATE / LAST COMPLETED / CURRENT BLOCKER / NEXT IMMEDIATE TARGET）与 §26「当前执行指令」的阶段勾选：V1-H 上一版标注"Backup 与性能预算未做"，本轮已划掉。</li>
+  <li><a href="docs/RECORDS.md">docs/RECORDS.md</a> — 新增一节 <em>2026-10-05 · V1 第二轮</em>，八块完整（LAST COMPLETED / FILES CHANGED / TEST STATUS / DECISIONS MADE / AEP IMPACT / KNOWN ISSUES / DRIFT CHECK / NEXT IMMEDIATE TARGET）。</li>
+</ul>
+<h3>新增 ADR（七条）</h3>
+<ul>
+  <li><a href="docs/adr/ADR-021-adapter-health-has-four-outcomes.md">ADR-021</a> — adapter 健康只有四种结局，最后一次运行覆盖前一次；历史属于事件日志与 §54 audit。</li>
+  <li><a href="docs/adr/ADR-022-watch-signals-are-events-that-move-no-state.md">ADR-022</a> — 监听信号是带动词的事件，且不改动任何 Project State。</li>
+  <li><a href="docs/adr/ADR-023-a-backup-is-an-online-copy-in-both-directions.md">ADR-023</a> — 备份与恢复都走 SQLite 在线备份 API；维护能力是独立端口。</li>
+  <li><a href="docs/adr/ADR-024-near-duplicates-are-lexical-hints.md">ADR-024</a> — L3 词法近似、只出提示；含读取窗口的确定性修复。</li>
+  <li><a href="docs/adr/ADR-025-adapter-contract-answers-seven-verbs.md">ADR-025</a> — 七个动词都要能答，且只答能力声明过的；V1 不发布真会写入 agent 的 adapter。</li>
+  <li><a href="docs/adr/ADR-026-mcp-is-a-second-door-not-a-second-implementation.md">ADR-026</a> — MCP 只有 stdio、只有读；三类失败分清。</li>
+  <li><a href="docs/adr/ADR-027-performance-budgets-are-work-counts.md">ADR-027</a> — 预算优先是工作量；§60 由依赖声明钉死。</li>
+</ul>
+<h3>被修订的既有记录</h3>
+<ul>
+  <li><a href="docs/adr/ADR-016-deferred-surfaces.md">ADR-016</a> — MCP 从"未做"移到"已做"，仍推迟的只剩 Tauri 桌面壳与浏览器扩展。</li>
+  <li><a href="docs/adr/ADR-020-cli-is-v1s-surface.md">ADR-020</a> — 修订：V1 现在有两个表面（给人的 <code>wp</code> 与给 agent 的 <code>wp-mcp</code>），但"两边都不许藏逻辑"这条规则不变；e2e 计数 11 → 17。</li>
+  <li><a href="docs/evolution/AEP-002-fts-to-hybrid-retrieval.md">AEP-002</a> — 记下 §52 L3 已有词法版本及其形状；触发条件不变（仍要用户自己项目里"错过的证据"）。</li>
+  <li><a href="docs/adr/README.md">docs/adr/README.md</a> — 索引补 ADR-021 … ADR-027。</li>
+</ul>
+
+<h2 id="boundary">六、边界自检（对着 §19 的禁止项）</h2>
+<table>
+  <thead><tr><th style="width:22%">禁止项</th><th>本轮怎么守的</th></tr></thead>
+  <tbody>
+    <tr><td>禁止 4 · 不维护两套 Project State</td><td>MCP 六个工具全部调 CLI 已在用的 service；预算测试断言物化行等于纯折叠结果；备份是数据库副本而非第二份事实；近似重复不写入。</td></tr>
+    <tr><td>禁止 7 · 核心不直接依赖 SQLite / 具体 Agent</td><td>rusqlite 仍只出现在 <code>crates/storage</code>——本轮把这条变成 <code>cargo test</code> 的一部分（manifest 扫描）。<code>wp-mcp</code> 只经端口读。</td></tr>
+    <tr><td>禁止 8 · 不为未触发功能提前实现</td><td><code>inject</code> 只有契约与默认实现，写入侧仅由测试 fixture 触发；没有守护进程、没有 MCP prompts/resources/sampling；Keychain 依旧 opt-in。</td></tr>
+    <tr><td>禁止 9 · 聊天记录不是最终项目记忆</td><td>监听信号与近似重复都不进状态；提示只做人判断的输入。</td></tr>
+    <tr><td>§53 / §54 安全</td><td><code>context_pack</code> 无论来自终端还是管道都过 Policy Filter 并留 audit；备份文件里只有 <code>secret_ref</code>，秘密值按 ADR-017 在库外。</td></tr>
+    <tr><td>§29 判断权在人</td><td>工具名禁止出现 <code>confirm / set_ / create / delete / resolve / append</code>，由测试守住；MCP 表面没有任何写动词。</td></tr>
+  </tbody>
+</table>
+
+<h2 id="deferred">七、仍然没做（如实列出）</h2>
+<ul>
+  <li><strong>V1-E Tauri 桌面壳</strong>：<code>apps/desktop</code> 仍不存在。本轮反而多备了三块原料——<code>wp adapters</code> 的判词、<code>wp duplicates</code> 的提示、<code>wp backup status</code> 的完整性结论。</li>
+  <li><strong>V1-D 浏览器扩展 + Native Messaging</strong>：没做。这也是 <code>open</code> / <code>inject</code> 第一次被真实实现的时刻。</li>
+  <li><code>wp watch</code> 是手动 pass，不是常驻监听；没有 notify、没有定时器。</li>
+  <li>§52 L3 是词法近似，语义版在 AEP-002；中文检索的分词盲区仍在（等 trigram 或 AEP-002）。</li>
+  <li>§58 的写入侧对所有内置 adapter 返回 <code>None</code>；发送依然是人的动作（§7.8）。</li>
+  <li>第一轮遗留：<code>feature_creep</code> 规则在大仓库上会刷屏，等界面聚合。</li>
+</ul>
+
+<h2 id="run">八、怎么跑</h2>
+<pre>export PATH="$HOME/.cargo/bin:$PATH"
+cargo test --workspace            # 247 passed / 0 failed / 1 ignored
+
+# CLI 工作台（包名 vibe-cli、二进制 wp；数据库默认 $WP_DB，其次 ./.vibe/workbench.db）
+cargo run -p vibe-cli --bin wp -- --help
+cargo run -p vibe-cli --bin wp -- project use &lt;id&gt;
+cargo run -p vibe-cli --bin wp -- watch                       # §39：分支 / 脏集合 / 文件出现改动消失
+cargo run -p vibe-cli --bin wp -- duplicates --threshold 0.85 # §52 L3：只提示
+cargo run -p vibe-cli --bin wp -- adapters                    # Stage H：每个 adapter 的最后判词
+cargo run -p vibe-cli --bin wp -- evidence decision:d-1       # §17 / §45
+cargo run -p vibe-cli --bin wp -- backup create               # §55 / §62
+cargo run -p vibe-cli --bin wp -- backup verify ./backups/workbench-….db
+cargo run -p vibe-cli --bin wp -- backup restore ./backups/….db --yes
+
+# §38.5 MCP：把工作台作为工具服务器交给 agent
+cargo build -p vibe-mcp-server
+./target/debug/wp-mcp --print-config           # 直接可粘贴进客户端的 mcpServers 片段
+# {"mcpServers":{"codlas":{"command":"wp-mcp","args":["--db","/path/to/workbench.db"]}}}
+# 六个只读工具：project_state / project_map / project_timeline / search / open_evidence / context_pack</pre>
+
+<footer>
+  报告由本轮开发过程整理生成 · 2026-10-05 ·
+  详细流水见 <a href="docs/RECORDS.md">docs/RECORDS.md</a>（2026-10-05 一节），
+  当前指针见 <a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a> §20。
+  本文件位于仓库根目录，所有链接为相对路径，本地浏览器与仓库内均可直接打开。
+</footer>
+
+</main>
+</body>
+</html>

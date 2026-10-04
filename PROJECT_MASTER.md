@@ -908,11 +908,11 @@ CURRENT LARGE ITERATION:
 V1
 
 CURRENT DEVELOPMENT STATE:
-V1 Core Loop Implemented / CLI Workbench Runnable / Desktop UI Not Started
+V1 Core Loop Implemented / CLI Workbench Runnable / Hardening Done / MCP Surface Readable / Desktop UI Not Started
 
 LAST COMPLETED:
-- Rust monorepo：`crates/domain|core|storage|state-engine|guard-engine|context-engine|ingestion|security|search` + `apps/cli`
-- Repository Ports：十个 trait 收在 `vibe_core::ports::Repositories`，rusqlite 只存在于 `crates/storage`（INV-001 由 drift 规则与 Cargo 依赖两处验证）
+- Rust monorepo：`crates/domain|core|storage|state-engine|guard-engine|context-engine|ingestion|security|search|mcp-server` + `apps/cli`
+- Repository Ports：十一个 trait 收在 `vibe_core::ports::Repositories`；rusqlite 只存在于 `crates/storage`（INV-001 由 drift 规则与 Cargo 依赖扫描两处验证，后者已是测试）
 - SQLite Schema v1→v3 + Migration + FTS5 + WAL；Event Store 以 `seq` 确定性重放，`dedup_key` / `content_hash` 保证采集幂等
 - Charter / Scope / Architecture Baseline：版本化、仅用户可写，非用户写入得到 `CoreError::Locked`；变更走 Change Proposal
 - Reducer + Materialized State + PROJECT_MAP Compiler（§31 的 13 个 section，空 section 自己声明为空）+ Snapshot / Diff
@@ -920,19 +920,30 @@ LAST COMPLETED:
 - Context Engine：§40 三层检索、§42 选取阶梯、§43 分 section 预算、§53 Policy Filter、§54 Audit、§44 路由建议、`prepare` 复制兜底（§7.8：发送永远是人的动作）
 - Ingestion：Adapter SDK + Normalizer + Dedup + 手动/粘贴/transcript/CLI-session 采集 + `git log` 只读采集 + 文件树扫描
 - §53 Secrets：值不进 SQLite 明文，库内只有 `secret_ref`；Keychain 需显式环境变量同意，否则落到 0600 文件库
-- §55 Export：State / Map / Charter / Decisions / AEP / Timeline 六个导出 + `.projectpack`（stored zip，manifest 记录 stateHash）
-- §58 Golden Test：四条固定输入重放整条闭环 + 11 条 CLI 端到端测试驱动真实 `wp` 二进制
-- 测试：`cargo test --workspace` = 187 passed / 0 failed / 1 ignored（Keychain 需 opt-in），构建零 warning
+- §55 Export **与 Backup**：六个导出 + `.projectpack`；`wp backup create|status|verify|restore` 走 SQLite 在线备份 API，`PRAGMA integrity_check` 出结论，restore 需 `--yes` 并先快照当前库（ADR-023）
+- §17 / §45 **证据腿可读**：`wp evidence <kind:id>` 打开一条记录引用的证据行——端口与 fold 早就在写它，缺的只是入口
+- Stage H **Adapter Health**：`AdapterRepository` + 四种结局（ok / unavailable / degraded / failed）+ `wp adapters`；`unavailable ≠ failed`（ADR-021）
+- §39 **监听**：`wp watch` 一次 pass 相减出分支、脏集合与文件出现/改动/消失；新增 `GIT_BRANCH_CHANGED` / `GIT_STATUS_CHANGED`；监听信号不折进 Project State（ADR-022）
+- §52 **L3 近似重复**：`wp duplicates` 只出提示、不合并、不删除；词法 Jaccard + CJK 字符 bigram；读取窗口补 `rowid DESC` 保证确定性（ADR-024）
+- §58 **Adapter Contract**：七个动词齐（含 `inject` / `fallback`），`fallback` 是唯一不能不答的动词；契约测试对每个 adapter 跑同一份 review 并带负控（ADR-025）
+- §38.5 **MCP 基础接口**：`crates/mcp-server` + `wp-mcp`，stdio JSON-RPC 2.0，六个只读工具全部经现有端口与 service，`context_pack` 过同一个 Policy Filter 并留 §54 audit（ADR-026）
+- §59 / §60 **预算**：纯折叠 ≤250 ms（实测 ~40 ms）、整条链 ≤20 s 的 hang/O(n²) tripwire（实测 ~6 s）；其余是工作量断言；成本规则由 11 个 manifest 的依赖扫描钉住（ADR-027）
+- 测试：`cargo test --workspace` = 247 passed / 0 failed / 1 ignored（Keychain 需 opt-in），构建零 warning
 
 CURRENT BLOCKER:
-None for the core loop. The next round needs a decision already implied by §21：V1-E 的界面用 Tauri 承载已经编译好的 map / diff / pack，不再新增核心逻辑。
+None for V1's core, capture, context, guard and hardening surfaces. The next round is V1-E and it
+needs no new core logic — the only thing to decide is which already-compiled view the desktop shell
+renders first (map / diff / pack / adapters / duplicates / backup status), because ADR-020 forbids the
+UI becoming a second place where events are interpreted.
 
 NEXT IMMEDIATE TARGET:
-V1-E Workbench（Tauri 桌面壳）：
-Overview → Timeline → Project Map → Decisions → Drift / Inbox → Search → Context Preview
-→ 只做展示与交互，读写全部走现有 ports；随后 V1-D 浏览器扩展取回 ChatGPT 实时会话。
-§14 判定中第 2、3、6 项现在已可从 CLI 走到（绑定目录 + 两个来源 + 指出偏航）；第 1、4、5、8、9、10 项在核心与 CLI 已具备，
-第 7 项（点击 Issue）与"发送进另一个 Agent"需要界面与 adapter 传输才算真正完成。
+V1-E Workbench（Tauri 2 桌面壳）：
+Overview → Timeline → Project Map → Decisions → Drift / Inbox → Search → Context Preview，
+以及本轮多出的三块原料：`wp adapters` 的判词、`wp duplicates` 的提示、`wp backup status` 的完整性结论。
+只做展示与交互，读写全部走现有 ports；随后 V1-D 浏览器扩展 + Native Messaging——那才是 `inject` /
+`open` 第一次被真实实现的时候。
+§14 判定：第 2、3、6 项已可从 CLI 走到；第 1、4、5、8、9、10 项在核心、CLI 与 MCP 读面上已具备；
+第 7 项（点击某个 Issue）与"发送进另一个 Agent"仍缺界面与 adapter 传输。
 
 完整阶段记录：docs/RECORDS.md
 ```
@@ -1128,11 +1139,12 @@ NEXT IMMEDIATE TARGET
 V1-A Foundation ✅
 V1-B Project Baseline ✅
 V1-C State Engine ✅
-V1-D Capture ✅（核心与 CLI；浏览器扩展与 Native Messaging 未做）
+V1-D Capture ✅（核心与 CLI + §38.5 MCP 只读接口；浏览器扩展与 Native Messaging 未做）
 V1-E Workbench ⏳ 下一站：Tauri 只做已编译视图的展示
 V1-F Context Engine ✅
 V1-G Guard ✅
-V1-H Hardening ✅（Export / Audit / Golden Test / CLI E2E；Backup 与性能预算未做）
+V1-H Hardening ✅（Export / Backup+Restore / Audit / Adapter Health / 监听 / 性能预算 /
+Golden Test / CLI E2E；本轮补掉的正是上一版标"未做"的 Backup 与性能预算）
 ```
 
 仍然有效的边界：**界面是核心逻辑的展示层，不是第二套逻辑。**

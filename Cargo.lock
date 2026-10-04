@@ -1127,6 +1127,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "vibe-mcp-server"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "vibe-context-engine",
+ "vibe-core",
+ "vibe-domain",
+ "vibe-search",
+ "vibe-state-engine",
+ "vibe-storage",
+]
+
+[[package]]
 name = "vibe-search"
 version = "0.1.0"
 dependencies = [

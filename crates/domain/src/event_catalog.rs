@@ -47,6 +47,11 @@ pub const DRIFT_ACCEPTED: &str = "DRIFT_ACCEPTED";
 
 pub const FILE_CHANGED: &str = "FILE_CHANGED";
 pub const GIT_COMMIT: &str = "GIT_COMMIT";
+/// §39's watcher signals beyond a commit. §16 says "at least" these types, and §39 names
+/// branch and status as things to watch, so they get their own rows rather than hiding
+/// inside `GIT_COMMIT`, which means "a commit exists" (ADR-022).
+pub const GIT_BRANCH_CHANGED: &str = "GIT_BRANCH_CHANGED";
+pub const GIT_STATUS_CHANGED: &str = "GIT_STATUS_CHANGED";
 pub const TEST_PASSED: &str = "TEST_PASSED";
 pub const TEST_FAILED: &str = "TEST_FAILED";
 pub const BUILD_PASSED: &str = "BUILD_PASSED";
@@ -89,6 +94,8 @@ pub const ALL: &[&str] = &[
     DRIFT_ACCEPTED,
     FILE_CHANGED,
     GIT_COMMIT,
+    GIT_BRANCH_CHANGED,
+    GIT_STATUS_CHANGED,
     TEST_PASSED,
     TEST_FAILED,
     BUILD_PASSED,

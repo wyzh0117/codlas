@@ -96,6 +96,34 @@ impl Workbench {
     fn database_bytes(&self) -> Vec<u8> {
         std::fs::read(&self.db).expect("the database exists")
     }
+
+    /// Where a test may build a checkout or a folder to watch. The database lives here too.
+    fn dir(&self) -> &Path {
+        self._dir.path()
+    }
+}
+
+/// Drives real `git` in a scratch directory. A watch pass is the one capture that has to be
+/// proven against an actual repository, since a canned runner cannot show git's own output
+/// shapes. The identity flags keep the result independent of whoever runs the suite.
+fn git_in(dir: &Path, args: &[&str]) -> String {
+    let mut command = Command::new("git");
+    command
+        .arg("-c")
+        .arg("user.name=Watch Test")
+        .arg("-c")
+        .arg("user.email=watch@example.com")
+        .args(args)
+        .current_dir(dir);
+    let out = command.output().expect("git runs");
+    assert!(
+        out.status.success(),
+        "`git {}` failed in {}: {}",
+        args.join(" "),
+        dir.display(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8(out.stdout).expect("utf-8 git stdout")
 }
 
 #[test]
@@ -684,5 +712,436 @@ fn a_capture_without_a_bound_directory_refuses_to_guess() {
     assert!(
         String::from_utf8_lossy(&unbound.stderr).contains("root_path"),
         "the error should name what is missing"
+    );
+}
+
+/// §45's traceability leg, which Stage E's acceptance names ("Decision 可打开 Evidence")
+/// but the CLI could not serve: the refs were only visible inside a `--json` payload, so
+/// a user could not follow one. Replay already maintains `evidence_links`; this proves
+/// the read path is reachable from the surface that ships.
+#[test]
+fn a_decision_opens_onto_the_evidence_it_cites() {
+    let work = Workbench::ready();
+    let state = work.json(&["state", "show"]);
+    let decision = state["decisions"][0]["id"]
+        .as_str()
+        .expect("the fixture confirms a decision");
+
+    let linked = work.json(&["evidence", "for", &format!("decision:{decision}")]);
+    let rows = linked.as_array().expect("a list of evidence");
+    assert!(
+        !rows.is_empty(),
+        "the confirmed decision cites nothing — replay lost the link"
+    );
+    assert!(
+        rows.iter()
+            .all(|row| row["type"] == serde_json::json!("message")),
+        "transcript evidence is recorded as messages: {linked}"
+    );
+
+    let first = rows[0]["id"].as_str().expect("an evidence id");
+    let shown = work.json(&["evidence", "show", first]);
+    assert_eq!(shown[0]["id"].as_str(), Some(first));
+    assert!(
+        shown[0]["summary"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("drift"),
+        "the row should carry the message the decision was made from: {shown}"
+    );
+
+    let bounded = work.json(&["evidence", "list", "--limit", "3"]);
+    assert_eq!(
+        bounded.as_array().unwrap().len(),
+        3,
+        "--limit bounds the listing rather than printing the whole log"
+    );
+
+    // A target the store cannot name is refused, never answered with a guess.
+    let no_colon = work.run(&["evidence", "for", "decision-without-a-colon"]);
+    assert!(
+        !no_colon.status.success(),
+        "`kind:id` is the only accepted shape"
+    );
+    let unknown = work.run(&["evidence", "show", "no-such-evidence"]);
+    assert!(
+        !unknown.status.success(),
+        "an unknown id is a miss, not an empty row"
+    );
+    assert!(
+        String::from_utf8_lossy(&unknown.stderr).contains("no-such-evidence"),
+        "the failure should name the id it looked for"
+    );
+}
+
+/// §55 / §62 Recovery from the surface a user actually stands on: the whole workbench
+/// is one file, and a restore has to put every project, event and index back — while
+/// refusing to be the thing that destroys the newer work by accident.
+#[test]
+fn a_backup_returns_the_workbench_to_an_earlier_moment() {
+    let work = Workbench::ready();
+
+    let status = work.json(&["backup", "status"]);
+    assert_eq!(status["integrity"].as_str(), Some("ok"));
+    assert!(status["schemaVersion"].as_i64().unwrap() > 0);
+
+    let created = work.json(&["backup", "create"]);
+    let file = PathBuf::from(created["file"].as_str().expect("a default destination"));
+    assert!(file.exists(), "the backup is a real file, not a claim");
+    assert_eq!(created["report"]["integrity"].as_str(), Some("ok"));
+    assert_eq!(
+        created["report"]["projects"].as_i64(),
+        Some(1),
+        "the copy carries the project the fixture built"
+    );
+
+    let verified = work.json(&["backup", "verify", &file.to_string_lossy()]);
+    assert_eq!(verified["report"], created["report"]);
+
+    let kept = work.json(&["project", "list"])[0]["name"]
+        .as_str()
+        .expect("the fixture's project")
+        .to_string();
+    work.ok(&["project", "create", "--name", "written after the backup"]);
+    assert_eq!(
+        work.json(&["project", "list"]).as_array().unwrap().len(),
+        2,
+        "and then the workbench moves on"
+    );
+    let unacknowledged = work.run(&["backup", "restore", &file.to_string_lossy()]);
+    assert!(
+        !unacknowledged.status.success(),
+        "restore discards work, so it never runs on a bare path"
+    );
+    assert!(
+        String::from_utf8_lossy(&unacknowledged.stderr).contains("--yes"),
+        "and says what would make it run"
+    );
+
+    let restored = work.json(&["backup", "restore", &file.to_string_lossy(), "--yes"]);
+    assert_eq!(restored["report"]["projects"].as_i64(), Some(1));
+
+    let projects = work.json(&["project", "list"]);
+    assert_eq!(projects.as_array().unwrap().len(), 1);
+    assert_eq!(projects[0]["name"].as_str(), Some(kept.as_str()));
+
+    // A restore lands inside a live workbench: every read path still works afterwards.
+    let state = work.json(&["state", "show"]);
+    assert!(
+        !state["decisions"].as_array().unwrap().is_empty(),
+        "the transcript that produced the decision came back with it"
+    );
+    assert!(!work.ok(&["map", "show"]).trim().is_empty());
+
+    // The discarded state is not lost: restore snapshotted it first.
+    let backups = file.parent().expect("a backups directory");
+    let pre_restore = std::fs::read_dir(backups)
+        .expect("backups dir")
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().starts_with("workbench-pre-restore-"))
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(pre_restore.len(), 1, "{:?}", pre_restore);
+    let safety = work.json(&["backup", "verify", &pre_restore[0].to_string_lossy()]);
+    assert_eq!(
+        safety["report"]["projects"].as_i64(),
+        Some(2),
+        "the snapshot holds the two projects the restore replaced"
+    );
+
+    let missing = work.run(&["backup", "verify", "no-such-file.db"]);
+    assert!(!missing.status.success());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("not found"));
+}
+
+/// §62 Degradation on the surface a user actually stands on: a source that cannot be
+/// read is named and exits non-zero, and the rest of the workbench keeps working.
+#[test]
+fn a_broken_adapter_is_named_and_the_workbench_keeps_working() {
+    let work = Workbench::ready();
+
+    let verdicts = work.json(&["adapters"]);
+    let transcript = verdicts
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|state| state["adapterId"] == serde_json::json!("transcript"))
+        .expect("the fixture import left a verdict behind");
+    assert_eq!(transcript["health"].as_str(), Some("ok"));
+
+    // A missing file is a failed capture, not a silent success.
+    let missing = work._dir.path().join("never-written.txt");
+    let failed = work.run(&[
+        "import",
+        "manual",
+        &missing.to_string_lossy(),
+        "--source-id",
+        "ghost",
+    ]);
+    assert!(
+        !failed.status.success(),
+        "one source, nothing read, exit non-zero"
+    );
+    assert!(
+        String::from_utf8_lossy(&failed.stderr).contains("ghost"),
+        "{}",
+        String::from_utf8_lossy(&failed.stderr)
+    );
+
+    let verdicts = work.json(&["adapters"]);
+    let rows = verdicts.as_array().unwrap();
+    let ghost = rows
+        .iter()
+        .find(|state| state["adapterId"] == serde_json::json!("ghost"))
+        .unwrap_or_else(|| panic!("the failure should be recorded, not only printed: {rows:?}"));
+    assert_eq!(ghost["health"].as_str(), Some("failed"));
+    assert_eq!(
+        rows[0]["adapterId"].as_str(),
+        Some("ghost"),
+        "the listing opens on what is wrong"
+    );
+
+    // The dead source costs the workbench nothing else.
+    let pack = work.json(&[
+        "context",
+        "build",
+        "--question",
+        "why does the ingest path duplicate messages?",
+        "--tokens",
+        "600",
+    ]);
+    assert!(
+        !pack["items"].as_array().unwrap().is_empty(),
+        "the context pack still travels"
+    );
+    assert!(!work.ok(&["map", "show"]).trim().is_empty());
+
+    // One run, one live source and one absent one: unavailable is not failed (§51).
+    let live = work._dir.path().join("live-chat.txt");
+    std::fs::write(&live, "user: 确认保留 上下文预算\n").expect("write");
+    let manifest = work._dir.path().join("sources.json");
+    std::fs::write(
+        &manifest,
+        serde_json::json!([
+            { "type": "manual", "id": "present", "file": live },
+            { "type": "manual", "id": "absent", "file": missing },
+        ])
+        .to_string(),
+    )
+    .expect("manifest");
+    work.ok(&["import", "all", "--file", &manifest.to_string_lossy()]);
+
+    let verdicts = work.json(&["adapters"]);
+    let rows = verdicts.as_array().unwrap();
+    let health = |id: &str| {
+        rows.iter()
+            .find(|state| state["adapterId"] == serde_json::json!(id))
+            .unwrap_or_else(|| panic!("no verdict recorded for {id}: {rows:?}"))["health"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    };
+    assert_eq!(health("present"), "ok", "a dead source did not cost the live one its run");
+    assert_eq!(health("absent"), "unavailable");
+    assert_eq!(health("ghost"), "failed");
+}
+
+/// §39's watch, against a repository that exists. The library tests prove the diff rules;
+/// this proves the CLI reaches them, that a pass which moves nothing writes nothing, and
+/// that the whole loop stays evidence-only: the task list cannot change because a branch
+/// was cut (§19 禁止 9).
+#[test]
+fn watching_a_checkout_reports_the_branch_and_the_dirty_set() {
+    let work = Workbench::ready();
+    let repo = work.dir().join("checkout");
+    std::fs::create_dir_all(&repo).expect("checkout dir");
+    git_in(&repo, &["init", "-q"]);
+    std::fs::write(repo.join("a.txt"), "one\n").expect("file");
+    git_in(&repo, &["add", "a.txt"]);
+    git_in(&repo, &["commit", "-q", "-m", "first"]);
+    let start_branch = git_in(&repo, &["rev-parse", "--abbrev-ref", "HEAD"]).trim().to_string();
+
+    let before = work.json(&["export", "state"]);
+    let tasks_before = before["tasks"].clone();
+
+    let first = work.json(&["watch", "--dir", &repo.to_string_lossy()]);
+    assert_eq!(first["git"]["compared"], serde_json::json!(false), "no earlier pass");
+    assert_eq!(first["git"]["eventsAppended"], serde_json::json!(0));
+    assert_eq!(first["git"]["branch"], serde_json::json!(start_branch));
+
+    let second = work.json(&["watch", "--dir", &repo.to_string_lossy()]);
+    assert_eq!(second["git"]["compared"], serde_json::json!(true));
+    assert_eq!(
+        second["git"]["eventsAppended"],
+        serde_json::json!(0),
+        "a second pass over an untouched tree is not a second fact"
+    );
+
+    std::fs::write(repo.join("a.txt"), "two\n").expect("edit");
+    let third = work.json(&["watch", "--dir", &repo.to_string_lossy()]);
+    assert_eq!(third["git"]["statusChanged"], serde_json::json!(true));
+    assert_eq!(third["git"]["branchChanged"], serde_json::json!(false));
+    assert_eq!(third["git"]["dirty"].as_array().unwrap().len(), 1);
+    assert!(
+        third["files"]["changed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|path| path == &serde_json::json!("a.txt")),
+        "the same pass re-scanned the tree: {}",
+        third["files"]
+    );
+
+    git_in(&repo, &["checkout", "-q", "-b", "feat/reconnect"]);
+    let fourth = work.json(&["watch", "--dir", &repo.to_string_lossy()]);
+    assert_eq!(fourth["git"]["branchChanged"], serde_json::json!(true));
+    assert_eq!(fourth["git"]["previousBranch"], serde_json::json!(start_branch));
+    assert_eq!(fourth["git"]["branch"], serde_json::json!("feat/reconnect"));
+
+    let timeline = work.json(&["export", "timeline"]);
+    let types: Vec<&str> = timeline
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|event| event["type"].as_str())
+        .collect();
+    assert!(types.contains(&"GIT_BRANCH_CHANGED"), "{types:?}");
+    assert!(types.contains(&"GIT_STATUS_CHANGED"), "{types:?}");
+    assert!(types.contains(&"FILE_CHANGED"), "{types:?}");
+
+    // Evidence, not conclusion: watching changed nothing about the work itself.
+    assert_eq!(
+        work.json(&["export", "state"])["tasks"],
+        tasks_before,
+        "a branch switch must not move a task"
+    );
+}
+
+/// §14 binds a plain folder as readily as a checkout, so a watch pass over one has to say
+/// "no repository here" and still do the half it can — silently reporting zero files would
+/// look identical to a capture that found nothing.
+#[test]
+fn watching_a_plain_folder_still_captures_the_files_it_can() {
+    let work = Workbench::ready();
+    let folder = work.dir().join("plain");
+    std::fs::create_dir_all(&folder).expect("folder");
+    std::fs::write(folder.join("notes.md"), "# notes\n").expect("file");
+
+    let text = work.ok(&["watch", "--dir", &folder.to_string_lossy()]);
+    assert!(
+        text.contains("not a git checkout"),
+        "the report says which half could not run: {text}"
+    );
+    assert!(text.contains("1 changed"), "the file scan still ran: {text}");
+
+    let report = work.json(&["watch", "--dir", &folder.to_string_lossy()]);
+    assert!(report["git"].is_null(), "no repository, so no git section");
+    assert_eq!(report["files"]["scanned"], serde_json::json!(1));
+}
+
+/// §52's L3 has one rule and it is not "dedupe better": 只提示，不直接删除. A library
+/// function that returns pairs cannot delete anything anyway, so what this surface has to
+/// prove is the reach and the restraint — a hint a user can act on, and message rows that
+/// are all still there. Re-importing the same transcript is the check: L1/L2 can only report
+/// the whole batch as already present if nothing was merged or dropped on the way here.
+#[test]
+fn a_near_duplicate_hint_names_the_pair_and_removes_nothing() {
+    use vibe_ingestion::NOTE;
+
+    let work = Workbench::ready();
+    let repeat = work.dir().join("repeat.json");
+    std::fs::write(
+        &repeat,
+        r#"[
+  {"role":"user","content":"we should keep the near duplicate pass read only so that a hint can never delete a message"},
+  {"role":"assistant","content":"agreed, and we should keep the near duplicate pass read only so that a hint can never merge or delete a message"},
+  {"role":"user","content":"the search layer uses an fts5 index rather than a table scan"}
+]"#,
+    )
+    .expect("a transcript to import");
+    let path = repeat.to_string_lossy().into_owned();
+
+    let import = work.json(&["import", "transcript", &path, "--source-id", "repeat"]);
+    assert_eq!(import["totalNewMessages"], serde_json::json!(3));
+
+    let report = work.json(&["duplicates"]);
+    let hints = report["hints"].as_array().expect("a list of hints");
+    assert_eq!(hints.len(), 1, "one reworded turn, not a pile: {report}");
+    let hint = &hints[0];
+    assert_eq!(hint["note"], serde_json::json!(NOTE));
+    assert_eq!(report["note"], serde_json::json!(NOTE));
+    let score = hint["similarity"].as_f64().expect("a score");
+    assert!(
+        (0.8..0.95).contains(&score),
+        "the pair clears the default bar and not a stricter one: {score}"
+    );
+    // Oldest side first: a hint that lists the answer before the question cannot be read.
+    assert!(
+        hint["firstExcerpt"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("we should keep"),
+        "{hint}"
+    );
+    assert!(
+        hint["secondExcerpt"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("agreed"),
+        "{hint}"
+    );
+    assert_eq!(
+        report["messagesScanned"],
+        serde_json::json!(16),
+        "the project-wide window reads the fixture's 13 turns as well as these 3"
+    );
+
+    // The thread is named, so the scoped re-run is reachable from the hint itself.
+    let thread = hint["conversationId"].as_str().expect("a conversation id");
+    let scoped = work.json(&["duplicates", "--conversation", thread]);
+    assert_eq!(scoped["scope"], serde_json::json!(thread));
+    assert_eq!(
+        scoped["hints"], report["hints"],
+        "scoping to the pair's own conversation changes what is read, not what is found"
+    );
+
+    // Same data, same answer (§59), and a second pass over a hint surface stays a read.
+    assert_eq!(
+        work.json(&["duplicates"]),
+        report,
+        "a hint list that moves between runs is not a hint about the data"
+    );
+
+    // The bar is honoured at the surface, not only in the library.
+    assert_eq!(
+        work.json(&["duplicates", "--threshold", "0.95"])["hints"],
+        serde_json::json!([])
+    );
+
+    let prose = work.ok(&["duplicates"]);
+    assert!(
+        prose.contains("nothing was merged, deleted or rewritten"),
+        "the note travels with the hint: {prose}"
+    );
+
+    // Nothing was taken out of the database.
+    let again = work.json(&["import", "transcript", &path, "--source-id", "repeat"]);
+    assert_eq!(again["totalNewMessages"], serde_json::json!(0));
+    assert_eq!(again["totalDuplicates"], serde_json::json!(3));
+
+    // Bad input is refused rather than answered with a guess.
+    let out_of_range = work.run(&["duplicates", "--threshold", "1.7"]);
+    assert!(
+        !out_of_range.status.success(),
+        "0.0-1.0 is the whole meaning of a threshold"
+    );
+    let missing = work.run(&["duplicates", "--conversation", "no-such-thread"]);
+    assert!(
+        !missing.status.success(),
+        "an unknown conversation is a miss, not an empty scan"
     );
 }

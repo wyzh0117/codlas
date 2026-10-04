@@ -1,6 +1,7 @@
 //! SQLite implementation of every repository port. This is the only crate in
 //! the workspace allowed to know about rusqlite (V1_DEVELOPMENT.md §6).
 
+mod backup;
 mod conversation;
 mod entity;
 mod event;
@@ -116,6 +117,7 @@ impl SqliteStore {
             search: self.clone(),
             settings: self.clone(),
             audit: self.clone(),
+            adapters: self.clone(),
         }
     }
 }

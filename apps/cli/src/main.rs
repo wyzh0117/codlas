@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use vibe_cli::app::{self, App};
-use vibe_cli::{baseline, capture, context, export, policy, views};
+use vibe_cli::{backup, baseline, capture, context, export, policy, views};
 use vibe_core::error::Result;
 
 #[derive(Parser)]
@@ -61,6 +61,9 @@ enum Command {
     /// §55: the six exports, or all of them in one `.projectpack`.
     #[command(subcommand)]
     Export(export::ExportCommand),
+    /// §55 / §62 Recovery: back the whole workbench up, verify a file, restore it.
+    #[command(subcommand)]
+    Backup(backup::BackupCommand),
 }
 
 fn main() {
@@ -84,5 +87,6 @@ fn run() -> Result<()> {
         Command::Policy(inner) => policy::dispatch_policy(&runtime, project, inner),
         Command::Secret(inner) => policy::dispatch_secret(&runtime, project, inner),
         Command::Export(inner) => export::dispatch(&runtime, project, inner),
+        Command::Backup(inner) => backup::dispatch(&runtime, inner),
     }
 }

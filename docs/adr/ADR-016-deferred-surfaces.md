@@ -1,6 +1,6 @@
 # ADR-016 — What V1's first implementation round deliberately does not include
 
-Status: accepted
+Status: accepted, amended 2026-10-05 (the MCP item below moved from deferred to built)
 Date: 2026-10-03
 Ref: PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list
 
@@ -31,8 +31,9 @@ Deferred on purpose, each with the stage that owns it:
 - **Browser extension + Native Messaging (V1-D)** — §34/§35. Needs the adapter contract to
   settle first, which it now has; the MV3 side is the only part that genuinely requires a
   browser session.
-- **MCP server (V1-D/F)** — `crates/mcp-server` is not created. The context compiler already
-  returns a `PreparedPayload` with a copy fallback, so an MCP surface is a thin wrapper.
+- **MCP server (V1-D/F)** — *no longer deferred.* Built in the second round as
+  `crates/mcp-server` + the `wp-mcp` binary; what shipped, and what still has not, is
+  ADR-026's decision.
 - **Cloud, sync, multi-device** — AEP-001, untriggered. `ProjectEvent.originNodeId` and
   `SyncCursor.lastContentHash` are reserved so the shape is ready.
 - **Semantic/vector retrieval** — AEP-002, untriggered. L1/L2/L3 cover the V1 acceptance
@@ -48,5 +49,10 @@ Deferred on purpose, each with the stage that owns it:
 timeline); item 2's folder binding is the project's own `rootPath` read by
 `wp import git|files`, and item 7's gesture ("点击某个 Issue") is the CLI's
 `wp context build --select kind:id` rather than a click. What remains open is the surface
-itself (V1-E desktop, V1-D extension and MCP transport). PROJECT_MASTER §20 states this as
-the current position.
+itself: **the V1-E desktop screens and the V1-D browser extension**. The MCP transport closed
+in the second round, and §55's backup side, Stage H's Adapter Health and Performance closed
+with it — see ADR-021 through ADR-027. PROJECT_MASTER §20 states the current position.
+
+The two remaining items are still deferred for the reason this record was written: each needs
+a lifecycle (a window, a browser session) that no core logic depends on, and 禁止 8 says a
+presentation layer over proven logic is built after the logic, not beside it.

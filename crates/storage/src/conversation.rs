@@ -3,8 +3,11 @@
 
 use rusqlite::{params, Row};
 use vibe_core::error::{CoreError, Result};
-use vibe_core::ports::{ConversationRepository, MessageInsertOutcome, SearchIndex};
-use vibe_domain::{Conversation, Message, MessageRole, Source, SourceType, SyncCursor};
+use vibe_core::ports::{AdapterRepository, ConversationRepository, MessageInsertOutcome, SearchIndex};
+use vibe_domain::{
+    AdapterHealth, AdapterState, Conversation, Message, MessageRole, Source, SourceType,
+    SyncCursor,
+};
 
 use crate::{OptionalExt, SqliteStore, json_col, json_val, opt_text, parse_ts, storage_err, to_ts};
 
@@ -254,13 +257,17 @@ impl ConversationRepository for SqliteStore {
         Ok(rows6)
     }
 
+    // `rowid DESC` is the tie-break: a batch import stamps every row with the same
+    // `observed_at`, and without it the reversal below would return those rows in whichever
+    // order the index happened to walk.
     fn recent_messages(&self, project_id: &str, limit: usize) -> Result<Vec<Message>> {
         let conn = self.conn()?;
         let mut stmt = conn
             .prepare(
                 "SELECT id, conversation_id, project_id, role, content, content_hash,
                         external_message_id, created_at, observed_at
-                 FROM messages WHERE project_id = ?1 ORDER BY observed_at DESC LIMIT ?2",
+                 FROM messages WHERE project_id = ?1
+                 ORDER BY observed_at DESC, rowid DESC LIMIT ?2",
             )
             .map_err(storage_err)?;
         let mut rows = stmt
@@ -313,4 +320,67 @@ impl ConversationRepository for SqliteStore {
         .map_err(storage_err)?;
         Ok(())
     }
+}
+
+impl AdapterRepository for SqliteStore {
+    fn record_state(&self, state: &AdapterState) -> Result<()> {
+        let conn = self.conn()?;
+        conn.execute(
+            "INSERT INTO adapter_states (adapter_id, health, detail, updated_at) VALUES (?1,?2,?3,?4)
+             ON CONFLICT(adapter_id) DO UPDATE SET health = excluded.health,
+                detail = excluded.detail, updated_at = excluded.updated_at",
+            params![
+                state.adapter_id,
+                state.health.as_str(),
+                state.detail,
+                to_ts(&state.updated_at)
+            ],
+        )
+        .map_err(storage_err)?;
+        Ok(())
+    }
+
+    fn get_state(&self, adapter_id: &str) -> Result<Option<AdapterState>> {
+        let conn = self.conn()?;
+        let found = conn
+            .query_row(
+                "SELECT adapter_id, health, detail, updated_at FROM adapter_states WHERE adapter_id = ?1",
+                params![adapter_id],
+                map_state,
+            )
+            .optional()
+            .map_err(storage_err)?;
+        Ok(found)
+    }
+
+    /// Worst health first: the surface that lists adapters exists to show what is broken.
+    fn list_states(&self) -> Result<Vec<AdapterState>> {
+        let conn = self.conn()?;
+        let mut rows = conn
+            .prepare(
+                "SELECT adapter_id, health, detail, updated_at FROM adapter_states
+                 ORDER BY CASE health
+                   WHEN 'failed' THEN 0 WHEN 'degraded' THEN 1 WHEN 'unavailable' THEN 2 ELSE 3 END,
+                   adapter_id",
+            )
+            .map_err(storage_err)?;
+        let states = rows
+            .query_map([], map_state)
+            .map_err(storage_err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_err)?;
+        Ok(states)
+    }
+}
+
+/// An unknown `health` value is data written by a future build, not a crash: the row is
+/// reported as `failed`, which is the only reading that cannot understate a problem.
+fn map_state(row: &Row<'_>) -> rusqlite::Result<AdapterState> {
+    let raw: String = row.get(1)?;
+    Ok(AdapterState {
+        adapter_id: row.get(0)?,
+        health: AdapterHealth::parse(&raw).unwrap_or(AdapterHealth::Failed),
+        detail: opt_text(row, 2),
+        updated_at: parse_ts(&row.get::<_, String>(3)?),
+    })
 }

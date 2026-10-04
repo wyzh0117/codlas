@@ -8,6 +8,8 @@
 use std::path::PathBuf;
 
 use clap::Subcommand;
+use vibe_core::error::CoreError;
+use vibe_core::ports::EntityKind;
 use vibe_domain::{EventStatus, InboxKind};
 use vibe_guard_engine::{DriftAction, DriftEngine, Inbox, InboxAction, InboxRef};
 use vibe_state_engine::{ProjectMapCompiler, Reducer, SnapshotService};
@@ -41,6 +43,24 @@ pub enum ViewCommand {
     Drift(DriftCommand),
     #[command(subcommand)]
     Inbox(InboxCommand),
+    /// Open the evidence a record cites (§17, §45 traceability).
+    #[command(subcommand)]
+    Evidence(EvidenceCommand),
+    /// §52's L3: turns that say almost the same thing, reported as hints. Reads only —
+    /// every message stays in the database exactly as it is.
+    Duplicates {
+        /// Scan one conversation instead of the project's recent window.
+        #[arg(long)]
+        conversation: Option<String>,
+        /// Token overlap a pair needs to be reported, 0.0-1.0.
+        #[arg(long, default_value_t = vibe_ingestion::DEFAULT_THRESHOLD)]
+        threshold: f64,
+        /// How many recent messages the pass reads; pairs grow with its square (§59).
+        #[arg(long, default_value_t = vibe_ingestion::DEFAULT_WINDOW)]
+        window: usize,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
     Search {
         query: String,
         #[arg(long, default_value_t = 20)]
@@ -113,6 +133,19 @@ pub enum InboxCommand {
         #[arg(long, default_value = "no reason given")]
         reason: String,
     },
+}
+
+#[derive(Subcommand)]
+pub enum EvidenceCommand {
+    /// Every evidence row the project has recorded.
+    List {
+        #[arg(long, default_value_t = 40)]
+        limit: usize,
+    },
+    /// One row by its own id.
+    Show { id: String },
+    /// `kind:id` — the rows linked to that record, e.g. `wp evidence for decision:<id>`.
+    For { target: String },
 }
 
 fn parse_drift_action(raw: &str) -> Result<DriftAction, String> {
@@ -219,6 +252,13 @@ pub fn dispatch(
         }
         ViewCommand::Drift(inner) => drift(app, &reducer, &id, inner),
         ViewCommand::Inbox(inner) => inbox(app, &id, inner),
+        ViewCommand::Evidence(inner) => evidence(app, &id, inner),
+        ViewCommand::Duplicates {
+            conversation,
+            threshold,
+            window,
+            limit,
+        } => duplicates(app, &id, conversation.as_deref(), threshold, window, limit),
         ViewCommand::Search {
             query,
             limit,
@@ -553,4 +593,145 @@ fn inbox(app: &App, id: &str, command: InboxCommand) -> vibe_core::error::Result
             Ok(())
         }
     }
+}
+
+/// §45's traceability leg: a decision or an issue has to open onto the evidence it
+/// cites. Replay maintains `evidence_links`, so this reads stored rows instead of
+/// guessing from the record's own `evidenceRefs` array.
+fn evidence(
+    app: &App,
+    project_id: &str,
+    command: EvidenceCommand,
+) -> vibe_core::error::Result<()> {
+    let (rows, empty) = match command {
+        EvidenceCommand::List { limit } => {
+            let mut rows = app.repos.evidence.list_evidence(project_id)?;
+            rows.truncate(limit);
+            (rows, "no evidence recorded".to_string())
+        }
+        EvidenceCommand::Show { id } => (
+            vec![app.repos.evidence.get_evidence(&id)?.ok_or_else(|| {
+                CoreError::NotFound {
+                    what: format!("evidence {id}"),
+                }
+            })?],
+            String::new(),
+        ),
+        EvidenceCommand::For { target } => {
+            let (kind, subject) = target.split_once(':').ok_or_else(|| {
+                CoreError::Validation(format!("expected `kind:id`, got '{target}'"))
+            })?;
+            let kind = EntityKind::parse(kind).ok_or_else(|| {
+                CoreError::Validation(format!(
+                    "unknown entity kind '{kind}' — task, issue, decision, artifact, milestone, \
+                     change_proposal, aep, drift_alert, evidence"
+                ))
+            })?;
+            (
+                app.repos.evidence.for_subject(kind, subject)?,
+                format!("nothing linked to {target}"),
+            )
+        }
+    };
+    if app.json {
+        return app.print_json(&rows);
+    }
+    if rows.is_empty() {
+        app.say(empty);
+    }
+    for row in rows {
+        app.say(format!(
+            "{:<8}\t{}\t{}\t{}",
+            row.r#type.as_str(),
+            row.id,
+            row.ref_id.as_deref().unwrap_or("-"),
+            row.summary.as_deref().map(one_line).unwrap_or_default()
+        ));
+    }
+    Ok(())
+}
+
+/// §52's L3 surface. What makes this command safe is its type rather than a promise: the
+/// pass takes a slice and returns pairs, and every port call here is a `list_*`, so there is
+/// no path from `wp duplicates` to a write. The count of messages still scanned is printed
+/// because the whole point of the hint is that the material was not touched.
+fn duplicates(
+    app: &App,
+    project_id: &str,
+    conversation: Option<&str>,
+    threshold: f64,
+    window: usize,
+    limit: usize,
+) -> vibe_core::error::Result<()> {
+    if !(0.0..=1.0).contains(&threshold) {
+        return Err(CoreError::Validation(format!(
+            "threshold must be between 0.0 and 1.0, got {threshold}"
+        )));
+    }
+    let (scope, messages) = match conversation {
+        Some(handle) => {
+            let found = app
+                .repos
+                .conversations
+                .get_conversation(project_id, handle)?
+                .ok_or_else(|| CoreError::NotFound {
+                    what: format!("conversation {handle}"),
+                })?;
+            let mut all = app.repos.conversations.list_messages(&found.id)?;
+            // Oldest-first, so trimming keeps the recent end — the same window the
+            // project-wide branch reads.
+            if all.len() > window {
+                all.drain(..all.len() - window);
+            }
+            (found.id, all)
+        }
+        None => (
+            format!("project {project_id} (recent window)"),
+            app.repos.conversations.recent_messages(project_id, window)?,
+        ),
+    };
+    let hints = vibe_ingestion::scan_near_duplicates(&messages, threshold, limit);
+    if app.json {
+        return app.print_json(&serde_json::json!({
+            "scope": scope,
+            "threshold": threshold,
+            "window": window,
+            "messagesScanned": messages.len(),
+            "messagesStillStored": messages.len(),
+            "hints": hints,
+            "note": vibe_ingestion::NOTE,
+        }));
+    }
+    if hints.is_empty() {
+        app.say(format!(
+            "no near-duplicate hints in {} messages at threshold {threshold}",
+            messages.len()
+        ));
+        return Ok(());
+    }
+    for hint in &hints {
+        // The conversation id on its own line so `wp duplicates --conversation <id>` is
+        // reachable from the hint, without the pair's two lines competing for width.
+        app.say(format!(
+            "{:.3}\tthread {}",
+            hint.similarity, hint.conversation_id
+        ));
+        app.say(format!(
+            "\tfirst  {}\t{}",
+            hint.first_id,
+            one_line(&hint.first_excerpt)
+        ));
+        app.say(format!(
+            "\tsecond {}\t{}",
+            hint.second_id,
+            one_line(&hint.second_excerpt)
+        ));
+    }
+    app.say(format!(
+        "{} hint(s) over {} messages — both sides are still in the database; nothing was \
+         merged, deleted or rewritten",
+        hints.len(),
+        messages.len()
+    ));
+    Ok(())
 }

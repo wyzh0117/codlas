@@ -52,6 +52,23 @@ against acceptance criteria (§14) that FTS5 already satisfies. §40 explicitly 
 - Or the inbox / drift engine needs near-duplicate detection at §52's L3 (semantic
   near-duplicate), which is the same machinery.
 
+### Half of that second trigger already exists (2026-10-05)
+
+§52's L3 now has a surface, but a **lexical** one: `crates/ingestion/src/near_duplicate.rs`
+scores Jaccard over token sets (CJK compared as character bigrams) at a 0.8 threshold and
+`wp duplicates` prints the pairs as hints — nothing is merged or deleted (ADR-024). So the
+machinery this AEP anticipated is present in shape and absent in kind:
+
+- paraphrase recall is exactly what it cannot do — "登录模块" versus "session reconnection"
+  scores 0.0, and the same blind spot this AEP records for FTS5 is recorded for it;
+- the numbers are visible and re-runnable, so a user who wants a pair that lexical scoring
+  missed can point at it, which is the evidence form this AEP asks for;
+- the shape a semantic level slots into is already drawn: a candidate list of pairs with a
+  score, a `note` saying what the score is, and no write path.
+
+This changes no trigger: embeddings are still paid for by a demonstrated miss on the user's
+own project, not by the availability of a model.
+
 ## Target
 
 Hybrid: FTS5 stays the cheap first pass, a local embedding index supplies candidate recall,

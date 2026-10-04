@@ -8,6 +8,10 @@
 //! * [`GitFacts::run`] reads history through the injected [`CommandRunner`] and parses the
 //!   output. The runner is a trait precisely so tests can feed canned text instead of
 //!   shelling out.
+//! * [`GitFacts::watch_workspace`] diff-reads the *working copy* — branch and uncommitted
+//!   paths — against the snapshot the previous pass left in `settings` (§39). V1 has no
+//!   daemon, so watching means comparing two passes, and the only memory a pass needs is
+//!   one row.
 //!
 //! Guards that make the subprocess side safe:
 //!
@@ -398,6 +402,59 @@ impl GitFactsReport {
     }
 }
 
+/// What the previous watch pass saw, kept as one row in `settings` (§39).
+///
+/// A snapshot rather than a log: without a daemon, the only thing a watch can diff
+/// against is what it recorded last time. Paths and a sha, never file contents (§22).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceSnapshot {
+    pub branch: String,
+    #[serde(default)]
+    pub head: Option<String>,
+    /// `git status --porcelain` lines, sorted, so two identical trees compare equal.
+    #[serde(default)]
+    pub status: Vec<String>,
+}
+
+/// One watch pass over a working copy (§39).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceWatchReport {
+    /// `false` when the directory holds no checkout, in which case every other field is
+    /// empty and nothing was written (§14 binds a plain folder too).
+    pub is_repository: bool,
+    pub source_id: String,
+    pub branch: String,
+    #[serde(default)]
+    pub head: Option<String>,
+    /// The dirty set right now, git's own porcelain lines.
+    #[serde(default)]
+    pub dirty: Vec<String>,
+    /// `false` on the first pass over a checkout: nothing changed *relative to* anything,
+    /// so the run recorded a baseline and wrote no event.
+    pub compared: bool,
+    pub branch_changed: bool,
+    pub status_changed: bool,
+    #[serde(default)]
+    pub previous_branch: Option<String>,
+    pub events_appended: usize,
+    /// Signals whose payload was already in the log — a tree that went dirty, clean, and
+    /// dirty with the same paths again (§52 idempotent re-capture).
+    pub events_duplicate: usize,
+}
+
+impl WorkspaceWatchReport {
+    /// What this pass leaves behind for the next one to diff against.
+    fn as_after(&self) -> WorkspaceSnapshot {
+        WorkspaceSnapshot {
+            branch: self.branch.clone(),
+            head: self.head.clone(),
+            status: self.dirty.clone(),
+        }
+    }
+}
+
 /// Captures commit history into the event log.
 pub struct GitFacts {
     repos: Repositories,
@@ -465,6 +522,191 @@ impl GitFacts {
             .run("git", &["diff", "--name-status", from, to], workdir)
             .and_then(|o| o.text())?;
         Ok(stdout.lines().filter_map(parse_name_status).collect())
+    }
+
+    /// §39's watch, without a daemon: read the working copy, diff it against the snapshot
+    /// the previous pass stored, write what differs, then store the new snapshot.
+    ///
+    /// The two signals are the ones no commit event can express — which branch HEAD sits on,
+    /// and which files are uncommitted — and the reducer folds neither into project state,
+    /// because a dirty tree says where the work is, not that any of it is finished (§39).
+    ///
+    /// A directory with no repository in it is a *result*, not a failure: §14 binds a plain
+    /// folder as often as a checkout, so the report says `is_repository: false` and writes
+    /// nothing. The caller decides whether that is worth a line.
+    pub fn watch_workspace(
+        &self,
+        project_id: &str,
+        workdir: &Path,
+    ) -> Result<WorkspaceWatchReport> {
+        let Some(branch) = self.first_line(&["rev-parse", "--abbrev-ref", "HEAD"], workdir)?
+        else {
+            return Ok(WorkspaceWatchReport {
+                is_repository: false,
+                ..WorkspaceWatchReport::default()
+            });
+        };
+        let head = self.head_sha(workdir);
+        let dirty = self.porcelain(workdir)?;
+        let key = self
+            .repo_id
+            .clone()
+            .unwrap_or_else(|| workdir.display().to_string());
+        let source = self.git_source(project_id, &key)?;
+
+        let previous = self.read_snapshot(project_id, &key)?;
+        let mut report = WorkspaceWatchReport {
+            is_repository: true,
+            source_id: source.id.clone(),
+            branch,
+            head,
+            dirty,
+            compared: previous.is_some(),
+            ..WorkspaceWatchReport::default()
+        };
+
+        // Nothing to compare against yet: the pass that sees a checkout for the first time
+        // records where it stands and claims no change (§39 says watch, not invent).
+        let Some(previous) = previous else {
+            self.write_snapshot(project_id, &key, &report.as_after())?;
+            return Ok(report);
+        };
+
+        report.previous_branch = Some(previous.branch.clone());
+        report.branch_changed = previous.branch != report.branch;
+        report.status_changed = previous.status != report.dirty;
+
+        if report.branch_changed {
+            let inserted = self.record_watch(
+                project_id,
+                &source.id,
+                event_catalog::GIT_BRANCH_CHANGED,
+                "branch",
+                &report.branch,
+                serde_json::json!({
+                    "from": previous.branch,
+                    "to": report.branch,
+                    "head": report.head,
+                    "repository": key,
+                }),
+            )?;
+            if inserted {
+                report.events_appended += 1;
+            } else {
+                report.events_duplicate += 1;
+            }
+        }
+        if report.status_changed {
+            let inserted = self.record_watch(
+                project_id,
+                &source.id,
+                event_catalog::GIT_STATUS_CHANGED,
+                "workspace",
+                &report.branch,
+                serde_json::json!({
+                    "from": previous.status,
+                    "to": report.dirty,
+                    "head": report.head,
+                    "clean": report.dirty.is_empty(),
+                    "repository": key,
+                }),
+            )?;
+            if inserted {
+                report.events_appended += 1;
+            } else {
+                report.events_duplicate += 1;
+            }
+        }
+
+        self.write_snapshot(project_id, &key, &report.as_after())?;
+        Ok(report)
+    }
+
+    /// The settings row a watch pass reads back next time. Public because a surface that
+    /// shows "what did the last watch see?" must not re-derive the key format.
+    pub fn snapshot_key(project_id: &str, repo_key: &str) -> String {
+        format!("watch:{project_id}:{repo_key}")
+    }
+
+    /// One read-only git call and its first stdout line — `None` when the call failed or
+    /// said nothing, which is how "this directory is not a checkout" reaches the caller.
+    fn first_line(&self, args: &[&str], workdir: &Path) -> Result<Option<String>> {
+        match self.runner.run("git", args, workdir).and_then(|o| o.text()) {
+            Ok(stdout) => Ok(stdout
+                .lines()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .map(str::to_string)),
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// `git status --porcelain`, sorted, empty lines dropped: the dirty set as data.
+    fn porcelain(&self, workdir: &Path) -> Result<Vec<String>> {
+        let stdout = self
+            .runner
+            .run("git", &["status", "--porcelain"], workdir)
+            .and_then(|o| o.text())?;
+        let mut lines: Vec<String> = stdout
+            .lines()
+            .map(str::trim_end)
+            .filter(|line| !line.trim().is_empty())
+            .map(str::to_string)
+            .collect();
+        lines.sort();
+        Ok(lines)
+    }
+
+    fn read_snapshot(&self, project_id: &str, repo_key: &str) -> Result<Option<WorkspaceSnapshot>> {
+        let Some(value) = self
+            .repos
+            .settings
+            .get_json(&Self::snapshot_key(project_id, repo_key))?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(serde_json::from_value::<WorkspaceSnapshot>(value).map_err(
+            |e| CoreError::Validation(format!("the stored workspace snapshot is unreadable: {e}")),
+        )?))
+    }
+
+    /// Stores what the pass saw. A snapshot that never lands would make the next pass
+    /// re-report the same diff as news, so this is part of the write, not a nicety.
+    fn write_snapshot(
+        &self,
+        project_id: &str,
+        repo_key: &str,
+        snapshot: &WorkspaceSnapshot,
+    ) -> Result<()> {
+        self.repos.settings.set_json(
+            &Self::snapshot_key(project_id, repo_key),
+            &serde_json::to_value(snapshot)
+                .map_err(|e| CoreError::Validation(format!("snapshot: {e}")))?,
+        )
+    }
+
+    /// One watch signal: a `System` event on the repository's own source, keyed on a
+    /// payload of branch names and paths so a repeated pass dedups instead of stacking
+    /// (§51). Watch material is evidence, never a conclusion (§39) — which is also why it
+    /// carries no `evidence_refs`: an evidence row points at material that vouches for a
+    /// claim, and a branch name *is* the fact the event states. The trace runs
+    /// source → event, which §17 asks of a signal that changes no state.
+    fn record_watch(
+        &self,
+        project_id: &str,
+        source_id: &str,
+        event_type: &str,
+        subject_type: &str,
+        subject_id: &str,
+        payload: Value,
+    ) -> Result<bool> {
+        let draft = EventDraft::new(project_id, event_type)
+            .actor(ActorType::System)
+            .subject(subject_type, subject_id)
+            .payload(payload);
+        let mut event = draft.into_event();
+        event.source_id = Some(source_id.to_string());
+        Ok(self.events.append_event(event)?.inserted)
     }
 
     /// Read history with the injected runner and capture it.

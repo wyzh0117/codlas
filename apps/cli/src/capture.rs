@@ -38,6 +38,19 @@ pub enum CaptureCommand {
     },
     /// Sources registered in this project and where each one stopped (§51).
     Sources,
+    /// Each adapter's last verdict (§62 Degradation): ok, degraded, unavailable, failed.
+    Adapters,
+    /// One pass over the working copy: which branch, what is uncommitted, and which files
+    /// appeared, changed or vanished since the last pass (§39 — evidence, never a claim
+    /// that any task is finished).
+    Watch {
+        /// Checkout to read. Defaults to the directory the project was bound to.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Stable identity for a project with more than one checkout (§38).
+        #[arg(long)]
+        repo_id: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -229,6 +242,103 @@ pub fn dispatch(
             }
             Ok(())
         }
+        CaptureCommand::Adapters => {
+            let states = app.repos.adapters.list_states()?;
+            if app.json {
+                return app.print_json(&states);
+            }
+            if states.is_empty() {
+                app.say("no adapter has run in this workbench yet");
+            }
+            for state in states {
+                app.say(format!(
+                    "{:<12} {}\t{}\t{}",
+                    state.health.as_str(),
+                    state.adapter_id,
+                    state
+                        .detail
+                        .unwrap_or_else(|| "last run was clean".to_string())
+                        .chars()
+                        .take(100)
+                        .collect::<String>(),
+                    state.updated_at.to_rfc3339()
+                ));
+            }
+            Ok(())
+        }
+        CaptureCommand::Watch { dir, repo_id } => {
+            let root = bound_dir(app, &id, dir)?;
+            let facts = vibe_ingestion::GitFacts::new(
+                app.repos.clone(),
+                Arc::new(vibe_ingestion::ProcessCommandRunner::new()),
+            )
+            .with_options(repo_id.as_deref(), vibe_ingestion::DEFAULT_MAX_COMMITS);
+            let watch = facts.watch_workspace(&id, &root)?;
+
+            // The same pass re-scans the tree too, because §39's file signals are a diff of
+            // two scans and nobody wants two commands to watch one directory.
+            let scan = vibe_ingestion::FileScan::new(app.repos.clone(), root.clone())
+                .with_source_key("workspace-files");
+            let files = scan.run(&id)?;
+
+            if app.json {
+                let git = if watch.is_repository {
+                    serde_json::to_value(&watch)?
+                } else {
+                    serde_json::Value::Null
+                };
+                return app.print_json(&serde_json::json!({
+                    "git": git,
+                    "files": {
+                        "scanned": files.scanned,
+                        "changed": files.changed_paths(),
+                        "eventsAppended": files.events_appended,
+                        "artifactsRecorded": files.artifacts_recorded,
+                    },
+                }));
+            }
+            if !watch.is_repository {
+                app.say(format!(
+                    "{} is not a git checkout — watching files only",
+                    root.display()
+                ));
+            } else if !watch.compared {
+                app.say(format!(
+                    "{}  first pass: branch {}, {} uncommitted — nothing to diff against yet",
+                    watch.source_id,
+                    watch.branch,
+                    watch.dirty.len()
+                ));
+            } else {
+                app.say(format!(
+                    "{}  branch {} ({}), {} uncommitted, dirty set {}",
+                    watch.source_id,
+                    watch.branch,
+                    match (&watch.previous_branch, watch.branch_changed) {
+                        (_, false) => "unchanged".to_string(),
+                        (Some(before), true) => format!("was {before}"),
+                        (None, true) => "new".to_string(),
+                    },
+                    watch.dirty.len(),
+                    if watch.status_changed { "changed" } else { "unchanged" }
+                ));
+                app.say(format!(
+                    "\t{} signals, {} already in the log",
+                    watch.events_appended, watch.events_duplicate
+                ));
+            }
+            app.say(format!(
+                "files  {} read, {} unchanged\t{} changed → {} events",
+                files.scanned,
+                files.unchanged,
+                files.changes.len(),
+                files.events_appended
+            ));
+            for (path, why) in &files.errors {
+                app.say(format!("  unreadable {path}: {why}"));
+            }
+            Ok(())
+        }
     }
 }
 
@@ -413,7 +523,13 @@ fn run_one(
         report.messages_inserted,
         report.messages_duplicate,
         report.events_appended,
-    )
+    )?;
+    // A run asked to read one source and read nothing. Reporting it is not enough: an
+    // exit code of 0 would tell a script the capture happened (§51).
+    match report.error {
+        Some(error) => Err(vibe_core::CoreError::Io(format!("{adapter_id}: {error}"))),
+        None => Ok(()),
+    }
 }
 
 fn print_ingest(

@@ -5,10 +5,11 @@
 //! [`vibe_core::ports`], so anything printed here is reachable without a GUI.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::Serialize;
 use vibe_core::error::{CoreError, Result};
-use vibe_core::ports::Repositories;
+use vibe_core::ports::{DatabaseMaintenance, Repositories};
 use vibe_storage::SqliteStore;
 
 /// Settings key holding the last project the CLI acted on, so `--project` is not
@@ -17,6 +18,9 @@ pub const POINTER_KEY: &str = "workbench.current_project";
 
 pub struct App {
     pub repos: Repositories,
+    /// Not part of [`Repositories`]: no project logic reads the database as a file,
+    /// so only the workbench surface holds this handle (§55).
+    pub maintenance: Arc<dyn DatabaseMaintenance>,
     pub db: PathBuf,
     pub json: bool,
 }
@@ -45,6 +49,7 @@ impl App {
         let store = SqliteStore::open(db)?;
         Ok(Self {
             repos: store.repositories(),
+            maintenance: store.clone(),
             db: db.to_path_buf(),
             json: false,
         })

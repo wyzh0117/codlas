@@ -5,14 +5,17 @@
 //! decides identity, dedup, judgement and cursoring. That is what keeps §7.6 true — the
 //! core has no idea which product a batch came from.
 //!
-//! `open` / `prepare` / `inject` are optional in V1 (§7.8, §62 Degradation): the default
-//! implementations report "unsupported" as `None`, so an adapter that can only read
-//! history still satisfies the contract and the caller falls back to copy-and-paste.
+//! §58 freezes seven verbs — `detect`, `capabilities`, `ingest`, `open`, `prepare`,
+//! `inject`, `fallback` — and this trait carries all seven. The last four split by who has
+//! to answer: `open` / `prepare` / `inject` are optional in V1 (§7.8, §37 `AUTO_EXECUTE` is
+//! never claimed) and report "cannot" as `Ok(None)`, while `fallback` always answers,
+//! because a run that ends in silence is §62's failure mode rather than a degraded path. An
+//! adapter that can only read history therefore still satisfies the contract.
 
 use vibe_core::error::Result;
 use vibe_domain::{
-    AgentCapabilities, AgentTarget, InjectResult, NormalizedConversationBatch, PreparedPayload,
-    SourceType, SyncCursor,
+    AgentCapabilities, AgentTarget, Fallback, InjectResult, NormalizedConversationBatch,
+    PreparedPayload, SourceType, SyncCursor,
 };
 
 /// One adapter instance covers exactly one thread/session, because §51 makes the sync
@@ -46,6 +49,28 @@ pub trait AgentAdapter: Send + Sync {
     /// Stage a context pack for the target without sending it (§7.8 Preview first).
     fn prepare(&self, _payload: &str) -> Result<Option<PreparedPayload>> {
         Ok(None)
+    }
+
+    /// Hand an already-prepared payload to the agent. `Ok(None)` is the answer every
+    /// adapter shipped in V1 gives: §7.8 has the user carry the pack, §37 never claims
+    /// `AUTO_EXECUTE`, and the CLI says so out loud. The verb is here so that adding a
+    /// surface later is an impl, not a change to the callers or to §58.
+    fn inject(&self, _payload: &PreparedPayload) -> Result<Option<InjectResult>> {
+        Ok(None)
+    }
+
+    /// §58's last verb and §62's whole point: how a person gets the pack in when this
+    /// adapter cannot. Unlike the three above it returns a value rather than an `Option`,
+    /// because "no answer" is precisely the silent failure this path exists to avoid.
+    fn fallback(&self, target: &AgentTarget) -> Fallback {
+        Fallback {
+            adapter_id: self.id().to_string(),
+            instruction: format!(
+                "paste the prepared pack into {target:?} yourself — the workbench sends nothing"
+            ),
+            deep_link: self.deep_link(target),
+            payload_path: None,
+        }
     }
 
     /// A deep link the user can click instead of pasting.

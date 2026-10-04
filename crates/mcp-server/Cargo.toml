@@ -1,0 +1,26 @@
+[package]
+name = "vibe-mcp-server"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+name = "vibe_mcp_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wp-mcp"
+path = "src/main.rs"
+
+[dependencies]
+vibe-domain.workspace = true
+vibe-core.workspace = true
+vibe-storage.workspace = true
+vibe-state-engine.workspace = true
+vibe-context-engine.workspace = true
+vibe-search.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
