@@ -116,43 +116,43 @@ CLI 命令、端口或 crate 上，配上能失败的测试：</p>
   <tr>
     <td>§55 备份 + §62 Recovery<br><span class="sub">Stage H</span></td>
     <td class="ok">完成</td>
-    <td><a href="crates/storage/src/backup.rs">crates/storage/src/backup.rs</a>（SQLite 在线备份 API，两个方向同一机制）+ <a href="apps/cli/src/backup.rs">apps/cli/src/backup.rs</a>；能力挂在<strong>独立端口</strong> <code>DatabaseMaintenance</code>，不进 <code>Repositories</code>（<a href="docs/adr/ADR-023-a-backup-is-an-online-copy-in-both-directions.md">ADR-023</a>）</td>
+    <td><a href="crates/storage/src/backup.rs">crates/storage/src/backup.rs</a>（SQLite 在线备份 API，两个方向同一机制）+ <a href="apps/cli/src/backup.rs">apps/cli/src/backup.rs</a>；能力挂在<strong>独立端口</strong> <code>DatabaseMaintenance</code>，不进 <code>Repositories</code>（<a href="docs/adr/ADR-总览.html#adr-023">ADR-023</a>）</td>
     <td>storage 6 条（<code>restoring_discards_what_was_recorded_after_the_backup</code>、<code>an_unrelated_sqlite_file_is_refused_as_a_backup</code> …）+ CLI <code>a_backup_returns_the_workbench_to_an_earlier_moment</code></td>
   </tr>
   <tr>
     <td>Stage H Adapter Health<br><span class="sub">§51 / §62 Degradation</span></td>
     <td class="ok">完成</td>
-    <td>第 11 个端口 <code>AdapterRepository</code>；<code>AdapterHealth = ok | unavailable | degraded | failed</code>；pipeline 每次运行写判词；<code>wp adapters</code>（<a href="docs/adr/ADR-021-adapter-health-has-four-outcomes.md">ADR-021</a>）</td>
+    <td>第 11 个端口 <code>AdapterRepository</code>；<code>AdapterHealth = ok | unavailable | degraded | failed</code>；pipeline 每次运行写判词；<code>wp adapters</code>（<a href="docs/adr/ADR-总览.html#adr-021">ADR-021</a>）</td>
     <td><a href="crates/ingestion/tests/health.rs">health.rs</a> 5 条：干净运行、来源不在场（<em>unavailable 而非 failed</em>）、失败保留错误文本、第二次运行覆盖而非堆历史、材料落地但游标坏掉 → degraded</td>
   </tr>
   <tr>
     <td>§39 监听事件</td>
     <td class="ok">完成</td>
-    <td><code>wp watch</code>；<code>GIT_BRANCH_CHANGED</code> / <code>GIT_STATUS_CHANGED</code> 新类型，文件侧沿用 <code>FILE_CHANGED</code> + payload 动词 <code>created/modified/deleted/baseline</code>；V1 无守护进程——watch = 两次 pass 相减（<a href="docs/adr/ADR-022-watch-signals-are-events-that-move-no-state.md">ADR-022</a>）</td>
+    <td><code>wp watch</code>；<code>GIT_BRANCH_CHANGED</code> / <code>GIT_STATUS_CHANGED</code> 新类型，文件侧沿用 <code>FILE_CHANGED</code> + payload 动词 <code>created/modified/deleted/baseline</code>；V1 无守护进程——watch = 两次 pass 相减（<a href="docs/adr/ADR-总览.html#adr-022">ADR-022</a>）</td>
     <td><a href="crates/ingestion/tests/watch.rs">watch.rs</a> 6 条，含 <code>watch_signals_fold_into_no_project_state_at_all</code>（监听写事件但 <code>stateHash</code> 一字不变）与"没有仓库的目录如实报告"；CLI 2 条</td>
   </tr>
   <tr>
     <td>§59 / §60 性能与成本预算</td>
     <td class="ok">完成</td>
-    <td><a href="crates/state-engine/tests/budgets.rs">state-engine/tests/budgets.rs</a>、<a href="crates/search/tests/budgets.rs">search/tests/budgets.rs</a>（<a href="docs/adr/ADR-027-performance-budgets-are-work-counts.md">ADR-027</a>）</td>
+    <td><a href="crates/state-engine/tests/budgets.rs">state-engine/tests/budgets.rs</a>、<a href="crates/search/tests/budgets.rs">search/tests/budgets.rs</a>（<a href="docs/adr/ADR-总览.html#adr-027">ADR-027</a>）</td>
     <td>1200 事件的纯折叠 ≤250 ms（实测 ~40 ms）且两次同 hash；整条链 ≤20 s 只作 hang / O(n²) tripwire（实测 ~6 s，失败时打印分段耗时）；其余全是工作量断言；§60 由 11 个 manifest 的依赖扫描钉死</td>
   </tr>
   <tr>
     <td>§52 L3 近似重复<br><span class="sub">只提示，不直接删除</span></td>
     <td class="ok">完成</td>
-    <td><a href="crates/ingestion/src/near_duplicate.rs">near_duplicate.rs</a> 词法 Jaccard（默认 0.8、窗口 240、CJK 字符 bigram）+ <code>wp duplicates</code>；<code>similarity_upper_bound</code> 先剪掉不可能达标的对（<a href="docs/adr/ADR-024-near-duplicates-are-lexical-hints.md">ADR-024</a>）</td>
+    <td><a href="crates/ingestion/src/near_duplicate.rs">near_duplicate.rs</a> 词法 Jaccard（默认 0.8、窗口 240、CJK 字符 bigram）+ <code>wp duplicates</code>；<code>similarity_upper_bound</code> 先剪掉不可能达标的对（<a href="docs/adr/ADR-总览.html#adr-024">ADR-024</a>）</td>
     <td>模块 7 条（含 <code>the_pass_holds_no_way_to_write</code>）+ CLI 1 条：同批材料<strong>再导入一次</strong>仍报同样数量的 duplicate，用数据库自己的回答证明没有删除</td>
   </tr>
   <tr>
     <td>§58 Adapter Contract<br><span class="sub">七个动词</span></td>
     <td class="ok">完成</td>
-    <td><a href="crates/ingestion/src/adapter.rs">adapter.rs</a> 的 <code>detect / capabilities / ingest / open / prepare / inject / fallback</code> 齐备；<code>fallback</code> 是唯一<strong>不能不答</strong>的动词（返回 <a href="crates/domain/src/agent.rs">Fallback</a>）（<a href="docs/adr/ADR-025-adapter-contract-answers-seven-verbs.md">ADR-025</a>）</td>
+    <td><a href="crates/ingestion/src/adapter.rs">adapter.rs</a> 的 <code>detect / capabilities / ingest / open / prepare / inject / fallback</code> 齐备；<code>fallback</code> 是唯一<strong>不能不答</strong>的动词（返回 <a href="crates/domain/src/agent.rs">Fallback</a>）（<a href="docs/adr/ADR-总览.html#adr-025">ADR-025</a>）</td>
     <td><a href="crates/ingestion/tests/contract.rs">contract.rs</a> 10 条：四个内置 adapter 全过 review，外加<strong>负控</strong> <code>an_adapter_may_not_answer_a_verb_it_did_not_advertise</code> 与只实现必需动词的 <code>Bare</code></td>
   </tr>
   <tr>
     <td>§38.5 MCP 基础接口</td>
     <td class="ok">完成</td>
-    <td>新 crate <a href="crates/mcp-server/src/lib.rs">crates/mcp-server</a>（stdio 换行分隔 JSON-RPC 2.0）+ <a href="crates/mcp-server/src/tools.rs">tools.rs</a>（六个只读工具）+ <a href="crates/mcp-server/src/main.rs">wp-mcp</a>；<code>context_pack</code> 过同一个 Policy Filter 并留 §54 audit（<a href="docs/adr/ADR-026-mcp-is-a-second-door-not-a-second-implementation.md">ADR-026</a>）</td>
+    <td>新 crate <a href="crates/mcp-server/src/lib.rs">crates/mcp-server</a>（stdio 换行分隔 JSON-RPC 2.0）+ <a href="crates/mcp-server/src/tools.rs">tools.rs</a>（六个只读工具）+ <a href="crates/mcp-server/src/main.rs">wp-mcp</a>；<code>context_pack</code> 过同一个 Policy Filter 并留 §54 audit（<a href="docs/adr/ADR-总览.html#adr-026">ADR-026</a>）</td>
     <td><a href="crates/mcp-server/tests/mcp.rs">mcp.rs</a> 12 条，含 <code>the_built_binary_serves_a_real_pipe</code>（真二进制 spawn：stdout 只有协议、诊断在 stderr、stdin 关闭是干净退出）与项目隔离、三类失败分清</td>
   </tr>
   </tbody>
@@ -200,20 +200,25 @@ ignored 仍是需要 <code>VIBE_SECURITY_ALLOW_KEYCHAIN=1</code> 的 Keychain �
 </ul>
 <h3>新增 ADR（七条）</h3>
 <ul>
-  <li><a href="docs/adr/ADR-021-adapter-health-has-four-outcomes.md">ADR-021</a> — adapter 健康只有四种结局，最后一次运行覆盖前一次；历史属于事件日志与 §54 audit。</li>
-  <li><a href="docs/adr/ADR-022-watch-signals-are-events-that-move-no-state.md">ADR-022</a> — 监听信号是带动词的事件，且不改动任何 Project State。</li>
-  <li><a href="docs/adr/ADR-023-a-backup-is-an-online-copy-in-both-directions.md">ADR-023</a> — 备份与恢复都走 SQLite 在线备份 API；维护能力是独立端口。</li>
-  <li><a href="docs/adr/ADR-024-near-duplicates-are-lexical-hints.md">ADR-024</a> — L3 词法近似、只出提示；含读取窗口的确定性修复。</li>
-  <li><a href="docs/adr/ADR-025-adapter-contract-answers-seven-verbs.md">ADR-025</a> — 七个动词都要能答，且只答能力声明过的；V1 不发布真会写入 agent 的 adapter。</li>
-  <li><a href="docs/adr/ADR-026-mcp-is-a-second-door-not-a-second-implementation.md">ADR-026</a> — MCP 只有 stdio、只有读；三类失败分清。</li>
-  <li><a href="docs/adr/ADR-027-performance-budgets-are-work-counts.md">ADR-027</a> — 预算优先是工作量；§60 由依赖声明钉死。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-021">ADR-021</a> — adapter 健康只有四种结局，最后一次运行覆盖前一次；历史属于事件日志与 §54 audit。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-022">ADR-022</a> — 监听信号是带动词的事件，且不改动任何 Project State。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-023">ADR-023</a> — 备份与恢复都走 SQLite 在线备份 API；维护能力是独立端口。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-024">ADR-024</a> — L3 词法近似、只出提示；含读取窗口的确定性修复。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-025">ADR-025</a> — 七个动词都要能答，且只答能力声明过的；V1 不发布真会写入 agent 的 adapter。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-026">ADR-026</a> — MCP 只有 stdio、只有读；三类失败分清。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-027">ADR-027</a> — 预算优先是工作量；§60 由依赖声明钉死。</li>
 </ul>
 <h3>被修订的既有记录</h3>
 <ul>
-  <li><a href="docs/adr/ADR-016-deferred-surfaces.md">ADR-016</a> — MCP 从"未做"移到"已做"，仍推迟的只剩 Tauri 桌面壳与浏览器扩展。</li>
-  <li><a href="docs/adr/ADR-020-cli-is-v1s-surface.md">ADR-020</a> — 修订：V1 现在有两个表面（给人的 <code>wp</code> 与给 agent 的 <code>wp-mcp</code>），但"两边都不许藏逻辑"这条规则不变；e2e 计数 11 → 17。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-016">ADR-016</a> — MCP 从"未做"移到"已做"，仍推迟的只剩 Tauri 桌面壳与浏览器扩展。</li>
+  <li><a href="docs/adr/ADR-总览.html#adr-020">ADR-020</a> — 修订：V1 现在有两个表面（给人的 <code>wp</code> 与给 agent 的 <code>wp-mcp</code>），但"两边都不许藏逻辑"这条规则不变；e2e 计数 11 → 17。</li>
   <li><a href="docs/evolution/AEP-002-fts-to-hybrid-retrieval.md">AEP-002</a> — 记下 §52 L3 已有词法版本及其形状；触发条件不变（仍要用户自己项目里"错过的证据"）。</li>
   <li><a href="docs/adr/README.md">docs/adr/README.md</a> — 索引补 ADR-021 … ADR-027。</li>
+  <li><strong>本页写好之后又变了一次介质</strong>：19 条 ADR 已汇总为
+    <a href="docs/adr/ADR-总览.html">docs/adr/ADR-总览.html</a>（单页、逐条锚点、并挂每一轮的任务报告），
+    原 <code>docs/adr/ADR-0NN-*.md</code> 已按用户要求删除，决定的措辞未改。
+    本页所有 ADR 链接因此指向该页锚点；变更本身记在
+    <a href="docs/RECORDS.md">docs/RECORDS.md</a> 的「ADR 介质变更」一节。</li>
 </ul>
 
 <h2 id="boundary">六、边界自检（对着 §19 的禁止项）</h2>

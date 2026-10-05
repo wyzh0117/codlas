@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>构览 Codlas · ADR 总览（20 条架构决定）</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#161a21; --ink:#e6e9ef; --muted:#9aa4b2;
+  --line:#252b35; --ok:#3fb950; --warn:#d29922; --no:#f85149; --accent:#58a6ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.75 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif}
+main{max-width:1120px;margin:0 auto;padding:40px 24px 96px}
+h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+h2{font-size:21px;margin:52px 0 12px;padding:10px 0 8px;border-bottom:1px solid var(--line);scroll-margin-top:70px}
+h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+h4{font-size:14.5px;margin:20px 0 6px;color:var(--muted)}
+p{margin:10px 0}
+ul,ol{margin:8px 0 8px 22px;padding:0}
+li{margin:5px 0}
+.sub{color:var(--muted);font-size:13px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+th{background:var(--panel);color:var(--muted);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+td code,li code,p code,h3 code,h2 code{background:#1c2230;border:1px solid var(--line);border-radius:4px;
+  padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+  overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+blockquote{margin:14px 0;padding:8px 16px;border-left:3px solid var(--line);color:var(--muted);background:var(--panel);border-radius:0 8px 8px 0}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid #24313f}
+a:hover{border-bottom-color:var(--accent)}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+.badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--muted)}
+.badge b{color:var(--ink);font-weight:600}
+nav{position:sticky;top:0;background:rgba(15,17,21,.94);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:10px 0;margin:-40px -24px 28px;z-index:5}
+nav .in{max-width:1120px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:12px;font-size:13px}
+nav a{border:0;color:var(--muted)}
+nav a:hover{color:var(--accent)}
+.meta{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0 18px;font-size:13.5px}
+.meta div{display:grid;grid-template-columns:74px 1fr;gap:10px;padding:2px 0}
+.meta k{color:var(--muted);font-weight:600}
+.callout{border-left:3px solid var(--accent);background:var(--panel);padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+.callout.warn{border-left-color:var(--warn)}
+.status{font-weight:600;font-size:12.5px;color:var(--ok)}
+.status.amended{color:var(--warn)}
+.top{font-size:12.5px;color:var(--muted);border:0}
+.top:hover{color:var(--accent)}
+footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+
+<nav><div class="in">
+  <a href="#what">ADR 是什么</a>
+  <a href="#index">索引</a>
+  <a href="#conventions">写 ADR 的规则</a>
+  <a href="#reports">任务报告</a>
+  <a href="#provenance">来源与变更</a>
+</div></nav>
+
+<h1>构览 Codlas · ADR 总览</h1>
+<div class="sub">Architecture Decision Records — 每一行"为什么这样决定"的正式记录 ·
+本页共 <b>20</b> 条 · 最后更新 2026-10-06</div>
+
+<div class="badges">
+  <span class="badge">ADR <b>20 条</b></span>
+  <span class="badge">覆盖 <b>ADR-001 … ADR-028</b>（缺号见下方说明）</span>
+  <span class="badge">介质 <b>单页 HTML，原 19 份 .md 已删除</b></span>
+</div>
+
+<h2 id="what">一、ADR 是什么，为什么需要它</h2>
+<p><b>ADR = Architecture Decision Record，架构决策记录。</b>一条 ADR 只回答一个问题：
+<em>为什么代码今天长这样</em>。它不是设计文档的复述，也不是待办清单，而是一段<strong>已经发生、
+并且希望后来者不要重新争论</strong>的决定。本项目里每条 ADR 固定四块：</p>
+<ul>
+  <li><strong>Context</strong> — 决定被迫出现时的约束（哪份文档、哪个缺陷、哪个禁止项在背后推它）。</li>
+  <li><strong>Decision</strong> — 现在为真的那件事，写到端口名、表名、函数名的精度。</li>
+  <li><strong>Consequences</strong> — 这个决定让人以后<em>不能</em>做什么，以及代价是什么。</li>
+  <li><strong>Ref</strong> — 指向 V1_DEVELOPMENT.md / PROJECT_MASTER.md 的条款号，或指向它修订、
+    实现的另一条 ADR。</li>
+</ul>
+<p>编号是<strong>不可回收</strong>的：ADR-003、005、006、007、008、009、010、012 没有独立条目，
+因为 PROJECT_MASTER §7 / §19 已经把那些决定钉得够死，另开一份文件只是复述总控；ADR-028 会一直
+往下排，缺号不是遗漏。反过来，<em>前瞻性</em>的架构意图不属于 ADR，属于
+<code>docs/evolution/</code> 下的 <strong>AEP</strong>（Architecture Evolution Proposal）——
+AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
+
+<h2 id="index">二、索引</h2>
+<table>
+  <thead><tr><th>编号</th><th>决定</th><th>状态</th><th>日期</th><th>依据</th></tr></thead>
+  <tbody>
+<tr><td><a href="#adr-001">ADR-001</a></td><td>Local-first storage</td><td><span class="status">accepted (design), implemented 2026-10-03</span></td><td>—</td><td>PROJECT_MASTER §7.1, V1_DEVELOPMENT §4.1</td></tr>
+<tr><td><a href="#adr-002">ADR-002</a></td><td>Event-first, with a disposable projection</td><td><span class="status">accepted (design), implemented 2026-10-03</span></td><td>—</td><td>PROJECT_MASTER §7.2, 禁止 4 / 禁止 6, V1_DEVELOPMENT §15–§18</td></tr>
+<tr><td><a href="#adr-004">ADR-004</a></td><td>Repository ports, and what sits on each side of them</td><td><span class="status">accepted (design), implemented 2026-10-03</span></td><td>—</td><td>PROJECT_MASTER §7.5, V1_DEVELOPMENT §6</td></tr>
+<tr><td><a href="#adr-011">ADR-011</a></td><td>PROJECT_MAP is compiled, and empty sections announce themselves</td><td><span class="status">accepted (design), implemented 2026-10-03</span></td><td>—</td><td>PROJECT_MASTER §10, 禁止 6, V1_DEVELOPMENT §30, §31, §33</td></tr>
+<tr><td><a href="#adr-013">ADR-013</a></td><td>One `entities` table with a JSON payload, not one table per object</td><td><span class="status">accepted (implementation deviation from V1_DEVELOPMENT §49, allowed by §50; key corrected by migration v3)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §49 (full table list), §50 (minimum database version)</td></tr>
+<tr><td><a href="#adr-014">ADR-014</a></td><td>Event identity: store-assigned `seq`, actor and status inside the dedup key</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §15, §18, §27, §51, §52; ADR-002</td></tr>
+<tr><td><a href="#adr-015">ADR-015</a></td><td>Drift rules are lexical in V1, and they only ever propose</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §26, §29, §8.6 (PROJECT_MASTER); AEP-004</td></tr>
+<tr><td><a href="#adr-016">ADR-016</a></td><td>What V1&#x27;s first implementation round deliberately does not include</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06 (MCP moved to built; §38.5&#x27;s inbound half found owed)</span></td><td>2026-10-03</td><td>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</td></tr>
+<tr><td><a href="#adr-017">ADR-017</a></td><td>The system keychain is explicit opt-in; the default secret store is a 0600 file</td><td><span class="status">accepted (records a deliberate reading of V1_DEVELOPMENT §53)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §53, §54; PROJECT_MASTER §19 禁止 8; ADR-016</td></tr>
+<tr><td><a href="#adr-018">ADR-018</a></td><td>The full-text index stores what a record says, not how it is encoded</td><td><span class="status">accepted (fixes four defects the CLI round surfaced)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §40 (L2), §43; PROJECT_MASTER §19 禁止 4</td></tr>
+<tr><td><a href="#adr-019">ADR-019</a></td><td>`.projectpack` is a stored zip whose manifest says &quot;projection, not a second source of truth&quot;</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §55; PROJECT_MASTER §19 禁止 4; ADR-002, ADR-011</td></tr>
+<tr><td><a href="#adr-020">ADR-020</a></td><td>V1&#x27;s user surface is the CLI; two test layers, one implementation</td><td><span class="status amended">accepted, amended 2026-10-05 (the e2e count grew; §38.5&#x27;s MCP door is now named)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026</td></tr>
+<tr><td><a href="#adr-021">ADR-021</a></td><td>An adapter&#x27;s health has exactly four outcomes, and the last run replaces the one before</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §51, §58, §62 Degradation; PROJECT_MASTER §7.9, §13.2 Stage H</td></tr>
+<tr><td><a href="#adr-022">ADR-022</a></td><td>Watch signals are events with a verb in the payload, and they move no state</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §16, §39, §19; PROJECT_MASTER §7.2, §7.3, 禁止 9</td></tr>
+<tr><td><a href="#adr-023">ADR-023</a></td><td>A backup is an online copy, made and restored through SQLite&#x27;s own backup API</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §55 Export/Backup, §62 Recovery; PROJECT_MASTER §7.5, §13.2 Stage H; ADR-019</td></tr>
+<tr><td><a href="#adr-024">ADR-024</a></td><td>Level-3 near-duplicates are lexical hints, and a hint carries the thread it came from</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §52, §59, §60; PROJECT_MASTER §7.2, §19 禁止 9; AEP-002</td></tr>
+<tr><td><a href="#adr-025">ADR-025</a></td><td>The adapter contract answers all seven verbs, and answers them only what it advertised</td><td><span class="status amended">accepted, amended 2026-10-06</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §37, §58, §62 Degradation, §7.8; PROJECT_MASTER §19 禁止 8; ADR-008 / AEP-003</td></tr>
+<tr><td><a href="#adr-026">ADR-026</a></td><td>The MCP surface is a second door onto the same ports, and it only opens inward</td><td><span class="status amended">accepted, amended 2026-10-06 (the other §38.5 direction found unmet → ADR-028)</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §38.5, §29, §53, §54, §59, §60, §62; PROJECT_MASTER §7.5, 禁止 4, 禁止 7, 禁止 8</td></tr>
+<tr><td><a href="#adr-027">ADR-027</a></td><td>A performance budget is a work count first and a stopwatch number second</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §59, §60; PROJECT_MASTER §7.2, §7.9, §13.2 Stage H, 禁止 7, 禁止 8</td></tr>
+<tr><td><a href="#adr-028">ADR-028</a></td><td>§38.5 is one door, not two: the read side is built, inbound MCP capture is owed</td><td><span class="status">accepted</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §38.5, §37, §58, §60, 禁止 9; PROJECT_MASTER §14 #10, §26 V1-D; ADR-024, ADR-026, ADR-027</td></tr>
+  </tbody>
+</table>
+
+<h2 id="conventions">三、写 ADR 的规则（从 PROJECT_MASTER §23 / §24 与 V1_DEVELOPMENT §57 收拢）</h2>
+<ul>
+  <li>只有<strong>已经在代码里为真</strong>的决定才进这里；还在计划的写进 <code>docs/evolution/</code> 当 AEP。</li>
+  <li>决定被后续轮次改变时<strong>就地修订</strong>并在 Status 标 <code>amended 日期（改了什么）</code>，
+    不叠第二份说法——同一件事有两份记录，就等于没人知道哪份为真。</li>
+  <li>一条 ADR 只记一个决定。缺陷驱动的决定（如 ADR-014、ADR-018、ADR-024）必须写清
+    <em>原实现为什么错</em>，而不只是写"修好了"。</li>
+  <li>新增重大功能却不说明它与原始目标的关系（禁止 10），这条 ADR 就是不合格的回写材料。</li>
+  <li>本页是<em>容器</em>不是<em>来源</em>：正文文字逐条来自原 <code>ADR-0NN-*.md</code>，未作改写；
+    将来新增 ADR 直接在页内追加一节，并同步 <code>docs/adr/README.md</code> 的指针。</li>
+</ul>
+
+<h2 id="reports">四、任务报告</h2>
+<p>每一轮开发的 HTML 报告都挂在这里。报告讲的是"这一轮做了什么、验证到什么程度"，
+本页讲的是"为什么这些决定成立"——两份互相引用，职责不同。</p>
+<table>
+  <thead><tr><th>轮次</th><th>日期</th><th>报告</th><th>本轮落地的决定</th></tr></thead>
+  <tbody>
+    <tr><td>V1 第一轮 · 核心闭环</td><td>2026-10-03</td>
+      <td><a href="../RECORDS.md">docs/RECORDS.md § 2026-10-03</a>（该轮未出 HTML 报告，流水在记录里）</td>
+      <td>ADR-013 … ADR-020</td></tr>
+    <tr><td>V1 第二轮 · 补齐未完成与半成品</td><td>2026-10-05</td>
+      <td><a href="../../V1第二轮开发报告.html">V1第二轮开发报告.html</a></td>
+      <td>ADR-021 … ADR-027（并修订 ADR-016、ADR-020）</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <strong>下一轮往哪加：</strong>在上面的表格追加一行，链接形如
+  <code>../../&lt;轮次&gt;开发报告.html</code>（报告放在仓库根目录，与第二轮同名规则）。
+</div>
+
+<h2 id="body">五、全部决定原文</h2>
+<h2 id="adr-001">ADR-001 — Local-first storage</h2>
+<div class="meta"><div><k>Status</k><span>accepted (design), implemented 2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §7.1, V1_DEVELOPMENT §4.1</span></div></div>
+<h3>Context</h3>
+<p>The product exists so a single developer keeps a project's design history. That history
+is the most valuable asset the tool holds, and it must survive losing network, losing an
+agent account, or closing the laptop.</p>
+<h3>Decision</h3>
+<p>Every record — project, charter versions, scope versions, architecture baselines,
+sources, conversations, messages, events, entities, evidence, snapshots, context packs,
+audit rows — lives in a local SQLite file. Nothing is uploaded, mirrored or backed up to a
+service as part of V1. Cloud appears only as <code>AEP-001</code>, whose trigger conditions are
+unchanged.</p>
+<p>Consequences of the choice that show up in code:</p>
+<ul>
+<li><code>SqliteStore::open(path)</code> is the only place a path is resolved; the default data dir is
+  chosen by the caller (<code>apps/cli</code> today), never by a crate.</li>
+<li><code>PRAGMA journal_mode = WAL</code> so the workbench can read while an adapter is appending.</li>
+<li>The <code>.projectpack</code> export (§55) is the only supported way to move a project today.</li>
+</ul>
+<h3>Consequences</h3>
+<p>Works offline, no account, no cost. Single-device only until <a href="../evolution/AEP-001-local-to-cloud-sync.md" title="docs/evolution">AEP-001</a> triggers; a lost disk
+without an export loses the project, which is why export is in V1 scope rather than later.</p>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-002">ADR-002 — Event-first, with a disposable projection</h2>
+<div class="meta"><div><k>Status</k><span>accepted (design), implemented 2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §7.2, 禁止 4 / 禁止 6, V1_DEVELOPMENT §15–§18</span></div></div>
+<h3>Context</h3>
+<p>A model summary is allowed to <em>observe</em> a project; it is not allowed to <em>be</em> the project's
+memory. If summaries could overwrite state, one bad rewrite would silently delete history,
+and nobody could answer "why is the project like this?" afterwards.</p>
+<h3>Decision</h3>
+<p><code>Source → Event → Reducer → Project State</code> is the only write path.</p>
+<ul>
+<li>Events are append-only, carry <code>actorType</code>, <code>confidence</code>, <code>status</code> and <code>evidenceRefs</code>, and
+  their type must come from <code>vibe_domain::event_catalog</code> (40 §16 constants). Appending an
+  unknown type is a validation error, not a silent accept.</li>
+<li>Only <code>Accepted</code> events reduce. A candidate below the inbox floor is stored for audit but
+  changes nothing.</li>
+<li><code>projector::fold</code> is a pure function: it never reads the entity, artifact or evidence
+  rows it is about to write. Materialized rows are a cache, and dropping every one of them
+  then re-folding must reproduce the same <code>state_hash</code>.</li>
+<li>There is exactly one <code>ProjectState</code> type; no crate keeps a second copy of project facts.</li>
+</ul>
+<h3>Consequences</h3>
+<p>Reading is a join-free cache hit, and time-travel, replay and golden tests are all the same
+operation. The cost: an event that turns out to be wrong is never edited — it is superseded
+by another event, so the log grows monotonically and rules must be written to tolerate that.</p>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-004">ADR-004 — Repository ports, and what sits on each side of them</h2>
+<div class="meta"><div><k>Status</k><span>accepted (design), implemented 2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §7.5, V1_DEVELOPMENT §6</span></div></div>
+<h3>Context</h3>
+<p>The documented risk is the core silently fusing to SQLite, and then a future personal-sync
+layer requiring a rewrite. The docs already forbade it; the question was what actually
+enforces it.</p>
+<h3>Decision</h3>
+<p><code>vibe-core::ports</code> declares ten traits and is the only boundary between logic and a store.
+Eight are the ones named in §6 (<code>ProjectRepository</code>, <code>EventRepository</code>, <code>EntityRepository</code>,
+<code>ConversationRepository</code>, <code>ArtifactRepository</code>, <code>SnapshotRepository</code>, <code>SearchIndex</code>,
+<code>SettingsRepository</code>); two more were added because the §49 tables deserved their own
+contract rather than being smuggled through another port: <code>EvidenceRepository</code> and
+<code>AuditRepository</code>.</p>
+<ul>
+<li><code>vibe-core</code> and every crate above it (<code>state-engine</code>, <code>guard-engine</code>, <code>context-engine</code>,
+  <code>ingestion</code>, <code>search</code>) depend on the traits only. <code>rusqlite</code> is a dependency of exactly one
+  manifest besides the workspace root — <code>crates/storage/Cargo.toml</code> — and appears in source
+  only under <code>crates/storage/src</code>. The other mentions of the word in the tree are the ports'
+  own prohibition comment and the fixture text the architecture-drift rule scans.</li>
+<li><code>Repositories</code> bundles the ten as <code>Arc&lt;dyn …&gt;</code> so a use-case service takes one argument
+  and stays <code>&amp;self</code>-callable.</li>
+<li><code>EntityStore</code> is a blanket extension trait over <code>EntityRepository</code> so callers get typed
+  <code>entities_of::&lt;Task&gt;()</code> / <code>put_entity()</code> instead of hand-decoding JSON. It must be in
+  scope at the call site — an intentional speed bump that keeps the raw JSON port visible.</li>
+<li><code>SqliteStore</code> implements all ten over one <code>Mutex&lt;Connection&gt;</code> and hands them out via
+  <code>repositories()</code>; tests use <code>open_in_memory()</code>.</li>
+</ul>
+<h3>Consequences</h3>
+<p>A sync engine (<a href="../evolution/AEP-001-local-to-cloud-sync.md" title="docs/evolution">AEP-001</a>) can be inserted under these traits without touching a service. The
+cost is indirection in tests and the discipline to never reach for <code>SqliteStore</code> from a
+service; the <code>-p</code> build graph makes that violation a compile error rather than a review
+comment.</p>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-011">ADR-011 — PROJECT_MAP is compiled, and empty sections announce themselves</h2>
+<div class="meta"><div><k>Status</k><span>accepted (design), implemented 2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §10, 禁止 6, V1_DEVELOPMENT §30, §31, §33</span></div></div>
+<h3>Context</h3>
+<p>§30 forbids letting an LLM rewrite the whole map each time. §10 defines the map as a
+"readable projection" of current state. The open implementation question was what a
+deterministic compiler does when a section has nothing to say — dropping the heading is the
+easiest thing, and also the most dangerous, because a workbench that quietly omits
+"Active Decisions" is indistinguishable from one that has none.</p>
+<h3>Decision</h3>
+<ul>
+<li><code>ProjectMapCompiler::render</code> reads a <code>ProjectState</code> and nothing else — no repository, no
+  clock, no model. <code>compile()</code> supplies the state and the tail of the event log;
+  <code>generatedAt</code> lives on <code>ProjectMap</code>, never inside the markdown body, so identical state
+  produces byte-identical markdown.</li>
+<li>All thirteen §31 headings are always emitted in the documented order. An empty section
+  renders <code>EMPTY_PLACEHOLDER</code> (<code>_none recorded_</code>).</li>
+<li>"Next Actions" is generated from declared gaps, not from a model's guess: a missing
+  charter, an unverified completion claim, open issues, dormant AEPs.</li>
+<li>A compiled map carries the <code>source_state_hash</code> it came from, and <code>ProjectMapCompiler::save</code>
+  persists the pair, so the workbench can prove which state a displayed map was compiled from.
+  <code>compile()</code> is side-effect-free apart from refreshing the projection; a snapshot takes its
+  own copy of the map text so a frozen view cannot drift.</li>
+<li>Snapshots keep their own map copy; the "since last snapshot" view (§33) is a diff of two
+  states, with its own markdown shape, and is the thing a returning user reads first.</li>
+</ul>
+<h3>Consequences</h3>
+<p>The map is cacheable and cheap (§59), and a missing section is information rather than an
+absence. Wording polish by a model remains optional and outside this path — if it is ever
+added it must produce a separate field, never overwrite the compiled body.</p>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-013">ADR-013 — One `entities` table with a JSON payload, not one table per object</h2>
+<div class="meta"><div><k>Status</k><span>accepted (implementation deviation from V1_DEVELOPMENT §49, allowed by §50; key corrected by migration v3)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §49 (full table list), §50 (minimum database version)</span></div></div>
+<h3>Context</h3>
+<p>§49 sketches <code>tasks</code>, <code>issues</code>, <code>decisions</code>, <code>artifacts</code>, <code>milestones</code>,
+<code>change_proposals</code>, <code>architecture_evolution_plans</code>, <code>drift_alerts</code> as separate tables. §50
+then permits collapsing them: "Task / Decision / Issue 可先作为 Entity subtype". The V1 field
+sets for these objects are still moving — §19 alone requires a task to carry an
+<code>unverifiedClaim</code> that no table column predicted.</p>
+<h3>Decision</h3>
+<p>Follow §50. One table:</p>
+<pre><code class="language-sql">entities(kind, id, project_id, status, data_json, updated_at, PRIMARY KEY (kind, id))
+</code></pre>
+<p>plus <code>entity_links</code> for relationships and <code>entity_versions</code> for before/after transitions.
+Typed access goes through <code>EntityStore</code>; the payload is the domain struct's own serde form,
+so the struct definition is the schema.</p>
+<p>The primary key is the pair, not <code>id</code> alone. The first cut of the baseline keyed <code>entities</code>
+by <code>id</code> and upserted <code>ON CONFLICT(id)</code> without rewriting <code>kind</code>, so two entities of
+different kinds sharing an id left <strong>one row carrying one kind's name and the other kind's
+body</strong> — a confirmed decision whose subject id happened to equal an issue's id silently
+turned that issue into decision JSON, and the reducer then failed to decode it (or, worse,
+decoded it). Migration v3 rebuilds the table with a kind-scoped key; it is a forward
+migration rather than an edit to baseline v1, because §49's own purpose is that a later
+release can migrate user data instead of discarding it. Nothing referenced <code>entities(id)</code>
+as a foreign key, so the rebuild needed no other table.</p>
+<p>Charter, scope, architecture baseline, events, messages, evidence, snapshots and audit rows
+keep their own tables, because those are versioned or append-only records with real
+constraints (§9 <code>UNIQUE(project_id, version)</code>, §52 <code>UNIQUE(conversation_id, content_hash)</code>,
+§15 <code>events.seq</code>).</p>
+<h3>Consequences</h3>
+<ul>
+<li>Adding a field to a Task is a code change, not a migration. In V1 that is the right
+  trade; by V2 (entity/architecture graph, <a href="../evolution/AEP-005-flat-state-to-graph.md" title="docs/evolution">AEP-005</a>) the JSON payload is what gets migrated.</li>
+<li>Querying is by <code>kind</code>, <code>project_id</code>, <code>status</code> (<code>idx_entities_project_kind</code>) and full text;
+  anything more selective has to be promoted to a column. <a href="../evolution/AEP-005-flat-state-to-graph.md" title="docs/evolution">AEP-005</a> is the planned moment.</li>
+<li><code>status</code> is duplicated out of the payload so the guard engine and the inbox can filter
+  without decoding every row. The projector keeps them consistent (§25 keeps
+  <code>DriftAlert.status</code> inside the payload too).</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-014">ADR-014 — Event identity: store-assigned `seq`, actor and status inside the dedup key</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §15, §18, §27, §51, §52; ADR-002</span></div></div>
+<h3>Context</h3>
+<p>Two defects found by the Stage C acceptance tests, both about identity.</p>
+<ol>
+<li>The reducer's determinism claim rests on a single total order. If a caller could supply
+   <code>seq</code>, a laptop that was offline for a week would hand back sequence numbers that
+   interleave wrongly with the ones already stored, and replay would stop being reproducible.</li>
+<li><code>event_dedup_key(project, type, source, message, subject, payload)</code> did not include who
+   spoke or what the event's judgement status was. So an agent's
+   <code>TASK_COMPLETED_CLAIM</code> arriving as a <code>pending_review</code> candidate and the user's later
+   confirmation of the very same subject and words hashed to the <em>same</em> key. The
+   confirmation was dropped as a duplicate, and the task stayed open forever with a
+   "confirmed" state that never landed. <code>an_agents_claim_stays_a_claim</code> failed on exactly
+   this.</li>
+</ol>
+<h3>Decision</h3>
+<ul>
+<li><code>events.seq</code> is <code>INTEGER PRIMARY KEY AUTOINCREMENT</code>, assigned by the store on insert, and
+   the caller's <code>seq</code> is ignored on write. <code>list_accepted(project, after_seq)</code> and
+   <code>fold</code>-then-<code>project_state</code> both order by it. Tests that need a fixed timestamp own
+   <code>occurredAt</code>, never <code>seq</code>.</li>
+<li><code>event_dedup_key</code> takes <code>actor_type</code> and <code>status</code> as two extra components. Identity is
+   "this source material, saying this, as this kind of statement" — so re-ingesting the same
+   transcript row is still idempotent, while a candidate and the fact it was later promoted
+   to are two distinguishable rows.</li>
+<li>Reviewing an event in place (<code>EventStore::review</code> → <code>patch_event</code>) is the normal promotion
+   path and preserves the original row; appending a fresh accepted event for the same
+   subject is also legitimate, and both now coexist.</li>
+</ul>
+<h3>Consequences</h3>
+<p><code>state_hash</code> covers <code>last_seq</code>, so a state fingerprint is tied to the store's ordering, not
+to a wall clock — which is what makes cross-machine replay (<code>the_same_log_projects_to_the_same_hash_in_two_stores</code>)
+meaningful. The cost: a truly identical re-ingest that differs only in judged status creates
+a second row by design, so inbox counts must be read as "statements", not "facts".</p>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-015">ADR-015 — Drift rules are lexical in V1, and they only ever propose</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §26, §29, §8.6 (PROJECT_MASTER); AEP-004</span></div></div>
+<h3>Context</h3>
+<p>§26 specifies V1 drift detection as "Rules + Structured Comparison + Optional LLM Judge"
+and §8.6 states a Drift Alert is a prompt that must not block development. The temptation
+is to reach for a model to decide "does this contradict that decision". The risk of giving
+in: an unexplainable alert, a per-check API cost, and a rule that silently changes behaviour
+when the model changes.</p>
+<h3>Decision</h3>
+<p>All six V1 rules are deterministic and run in <code>guard-engine</code> with no model in the loop:</p>
+<table>
+<thead>
+<tr>
+<th>rule</th>
+<th>signal it can actually see</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scope_drift</code></td>
+<td>task/issue/proposal wording vs <code>outOfScope</code> + <code>forbidden</code> items</td>
+</tr>
+<tr>
+<td><code>decision_conflict</code></td>
+<td>high token overlap with an <strong>Active</strong> decision <em>and</em> a flipped negation or opposition-vocabulary hit</td>
+</tr>
+<tr>
+<td><code>architecture_drift</code></td>
+<td><code>ArchitectureInvariant.detect</code> patterns matched against artifact paths and layer role; <code>scan_source(state, path, text)</code> is the precise textual path</td>
+</tr>
+<tr>
+<td><code>feature_creep</code></td>
+<td>new work with no anchor in <code>mustHave</code>, <code>inScope</code>, an open change proposal or an AEP</td>
+</tr>
+<tr>
+<td><code>repeated_redesign</code></td>
+<td><code>redesign_count ≥ 3</code>, or ≥3 supersede/reverse hits on one subject</td>
+</tr>
+<tr>
+<td><code>stale_assumption</code></td>
+<td>active decision older than an injected <code>now</code> minus threshold, contradicted by newer events</td>
+</tr>
+</tbody>
+</table>
+<p>Supporting rules that are load-bearing, not incidental:</p>
+<ul>
+<li>Alert ids are content-addressed over <code>(project, type, summary, subject)</code>, so <code>check()</code> is
+  idempotent and never piles up duplicates. An alert a user already judged is never
+  resurrected.</li>
+<li>Every alert carries non-empty <code>baseline_refs</code> (what it was measured against) and
+  <code>evidence_refs</code> (which events/entities triggered it). An alert that cannot cite its
+  baseline is not allowed.</li>
+<li>The engine never mutates charter, scope or baseline, and never applies a change proposal's
+  delta. Accepting a proposal records status plus <code>CHANGE_PROPOSAL_ACCEPTED</code>; a user applies
+  it. That is 禁止 5 kept at the engine boundary rather than in the UI.</li>
+<li>Matching is CJK-aware (bigram tokenizer) because the project's own records are Chinese.</li>
+</ul>
+<h3>Consequences</h3>
+<p>Known, documented blind spot: a paraphrased contradiction with no shared vocabulary and no
+negation marker is missed. That is the exact gap <a href="../evolution/AEP-004-rules-to-intelligent-drift.md" title="docs/evolution">AEP-004</a> (Basic Drift Rules → Intelligent
+Drift Engine) exists to close, and its trigger condition is unchanged — the rule layer is the
+floor it will be measured against, not something it has to be rewritten around.</p>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-016">ADR-016 — What V1&#x27;s first implementation round deliberately does not include</h2>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (MCP moved from deferred to built) and 2026-10-06 (§38.5's inbound half is owed — <a href="#adr-028">ADR-028</a>)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</span></div></div>
+<h3>Context</h3>
+<p>The first implementation round had to produce a runnable closed loop (Stage A/B/C/G plus the
+Map and Context engines) rather than a wide but unconnected surface. Several §13.2 items are
+front-end or transport concerns that a core loop does not need, and pretending otherwise is
+the 禁止 8 failure mode.</p>
+<h3>Decision</h3>
+<p>Built and tested in this round: Cargo workspace, domain model, ten repository ports, SQLite
+schema + migrations + FTS5, event store, charter/scope/baseline with user lock and change
+proposals, deterministic reducer, PROJECT_MAP compiler, snapshot + diff, six drift rules,
+inbox, state judge, entity resolution, context compiler with budget/policy/audit, secret
+scanning and storage, adapters, git/file evidence capture wired to <code>wp import git|files</code>
+reading the project's bound <code>rootPath</code>, search layers L1/L2/L3 behind one pipeline with
+<code>wp reindex</code>, the secret/policy/export CLI (including <code>.projectpack</code>), and two test layers —
+<code>golden.rs</code> over the libraries, <code>cli_e2e.rs</code> over the real binary.</p>
+<p>Deferred on purpose, each with the stage that owns it:</p>
+<ul>
+<li><strong>Tauri desktop UI (V1-E workbench screens)</strong> — <code>apps/desktop</code> does not exist yet. The CLI
+  renders the same compiled map, the same diff and the same context pack, so the UI round is
+  a presentation layer over proven logic rather than a redesign of it. <code>cargo-tauri</code> 2.11.5
+  and the Rust toolchain are verified working on this machine.</li>
+<li><strong>Browser extension + Native Messaging (V1-D)</strong> — §34/§35. Needs the adapter contract to
+  settle first, which it now has; the MV3 side is the only part that genuinely requires a
+  browser session.</li>
+<li><strong>MCP server (V1-D/F)</strong> — <em>no longer deferred.</em> Built in the second round as
+  <code>crates/mcp-server</code> + the <code>wp-mcp</code> binary; what shipped, and what still has not, is
+  <a href="#adr-026">ADR-026</a>'s decision. One half of §38.5 remains open: the <em>inbound</em> direction —
+  the workbench reading an agent's conversation over MCP — is owed, with its trigger and shape
+  recorded in <a href="#adr-028">ADR-028</a>.</li>
+<li><strong>Cloud, sync, multi-device</strong> — <a href="../evolution/AEP-001-local-to-cloud-sync.md" title="docs/evolution">AEP-001</a>, untriggered. <code>ProjectEvent.originNodeId</code> and
+  <code>SyncCursor.lastContentHash</code> are reserved so the shape is ready.</li>
+<li><strong>Semantic/vector retrieval</strong> — <a href="../evolution/AEP-002-fts-to-hybrid-retrieval.md" title="docs/evolution">AEP-002</a>, untriggered. L1/L2/L3 cover the V1 acceptance
+  criteria.</li>
+<li><strong><code>ChatGptWebAdapter</code> beyond transcript import</strong> — reading a live web session is the
+  extension's job, not the core's.</li>
+<li><strong>Auto-execute of an agent</strong> — §37 explicitly does not require it in V1.</li>
+</ul>
+<h3>Consequences</h3>
+<p>§14's ten-point V1 acceptance list is exercised at the core-and-CLI level for items 1–6 and
+8–10 (charter → sources → entities → map → drift → pack → prepare → re-entry into the
+timeline); item 2's folder binding is the project's own <code>rootPath</code> read by
+<code>wp import git|files</code>, and item 7's gesture ("点击某个 Issue") is the CLI's
+<code>wp context build --select kind:id</code> rather than a click. What remains open is the surface
+itself: <strong>the V1-E desktop screens and the V1-D browser extension</strong>. The MCP transport closed
+in the second round, and §55's backup side, Stage H's Adapter Health and Performance closed
+with it — see <a href="#adr-021">ADR-021</a> through <a href="#adr-028">ADR-028</a>. PROJECT_MASTER §20 states the current position.</p>
+<p>The two remaining items are still deferred for the reason this record was written: each needs
+a lifecycle (a window, a browser session) that no core logic depends on, and 禁止 8 says a
+presentation layer over proven logic is built after the logic, not beside it.</p>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-017">ADR-017 — The system keychain is explicit opt-in; the default secret store is a 0600 file</h2>
+<div class="meta"><div><k>Status</k><span>accepted (records a deliberate reading of V1_DEVELOPMENT §53)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §53, §54; PROJECT_MASTER §19 禁止 8; ADR-016</span></div></div>
+<h3>Context</h3>
+<p>§53 states two things at once: "API Key、Token 不进 SQLite 明文" and "使用系统 Keychain。
+数据库只保存 secret_ref". The first is an invariant no test or automation may break. The
+second names one implementation. Writing to the OS keychain is machine-global shared state:
+a test run, a reindex, or any background invocation would either pop a GUI authorization
+dialog or leave entries the user did not ask for — the same blast-radius reasoning that keeps
+release actions behind explicit confirmation.</p>
+<h3>Decision</h3>
+<p><code>SecretStore</code> (put / lookup / delete / describe) is a port in <code>crates/security</code>, with two
+implementations:</p>
+<ul>
+<li><code>LocalSecretStore</code> — the default. One <code>&lt;id&gt;.value</code> plus <code>&lt;id&gt;.meta.json</code> per secret in a
+  directory the caller injects (<code>apps/cli</code> names <code>secrets/</code> beside the database). Files are
+  created <code>create_new</code> + mode 0600 via <code>create_private</code>. The ref is <code>local:&lt;generated id&gt;</code>;
+  the ref is validated against a lowercase/digit whitelist <em>before</em> any path is built, so
+  <code>local:../escape</code> fails without touching the filesystem.</li>
+<li><code>KeychainSecretStore</code> — macOS <code>/usr/bin/security add-generic-password -U</code>, value handed
+  over <strong>stdin</strong> so it never appears in an argument vector; the RFC3339 <code>-C</code> comment carries
+  <code>createdAt</code>; statuses 44/45 mean absent. Its only constructor takes a <code>KeychainConsent</code>,
+  and the only way to obtain one is <code>VIBE_SECURITY_ALLOW_KEYCHAIN=1</code> in the environment of
+  the process the user started.</li>
+</ul>
+<p><code>wp secret put --keychain</code> without the variable refuses with a message naming the variable
+and the file-store alternative; <code>wp secret put</code> without the flag never touches the keychain.
+The database only ever sees <code>secretRef</code>; <code>wp secret list</code> records name/ref/store in project
+settings, and <code>describe</code> structurally cannot return a value.</p>
+<p>The real-keychain round trip is a manual, <code>#[ignore]</code>d test
+(<code>crates/security/tests/keychain_opt_in.rs</code>):</p>
+<pre><code>VIBE_SECURITY_ALLOW_KEYCHAIN=1 cargo test -p vibe-security --test keychain_opt_in -- --ignored
+</code></pre>
+<h3>Consequences</h3>
+<ul>
+<li>V1's out-of-the-box posture is weaker at rest than the keychain: a 0600 file, protected by
+  filesystem permissions only. The invariant §53 exists to guarantee — no plaintext in
+  SQLite — holds for both stores, and <code>apps/cli/tests/cli_e2e.rs</code> proves it by reading every
+  byte of the database file and asserting the value is absent while <code>local:&lt;id&gt;</code> is present.</li>
+<li>Refs are not interchangeable across stores. <code>local:</code> refs are id-keyed (putting the same
+  name twice creates two secrets; the settings index keeps the newest), while <code>keychain:</code>
+  refs are name-keyed and <code>-U</code> makes a second put an upsert on one account.
+  <code>SecretMetadata.store</code> is therefore always shown beside the ref.</li>
+<li><code>store_for</code> (apps/cli/src/policy.rs:195) resolves a ref by prefix. A <code>keychain:</code> ref read
+  back without the consent variable currently fails through <code>LocalSecretStore</code>'s ref
+  validation ("not a local secret ref") rather than a message naming the variable — it fails
+  closed, but the wording is indirect. Left as is for V1's single-user setting.</li>
+<li>Non-macOS platforms keep the file store; the keychain wrapper is <code>/usr/bin/security</code>-bound
+  on purpose. A portable hidden-file backend for other platforms would be its own ADR.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-018">ADR-018 — The full-text index stores what a record says, not how it is encoded</h2>
+<div class="meta"><div><k>Status</k><span>accepted (fixes four defects the CLI round surfaced)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §40 (L2), §43; PROJECT_MASTER §19 禁止 4</span></div></div>
+<h3>Context</h3>
+<p>The first indexer wrote <code>serde_json::to_string(record)</code> into <code>search_index.body</code>. Using the
+CLI then produced four defects at once:</p>
+<ul>
+<li>a hit's snippet was a JSON blob (<code>{"evidenceRefs":["evt:…"]…}</code>) that no one can read;</li>
+<li>a query for a 64-hex hash or an <code>evt:</code> id matched nearly every row, because the encoding
+  contained those strings;</li>
+<li>L1 hits whose record had no body rendered as blank lines;</li>
+<li><code>wp search</code> bypassed §40's L1/L3 layers entirely, so <code>wp reindex</code> was unreachable and the
+  three layers never actually ran together.</li>
+</ul>
+<p>Each defect passed the library suite of the day; all four were found by running the binary.
+That is the instrument <a href="#adr-020">ADR-020</a> exists to keep.</p>
+<h3>Decision</h3>
+<ol>
+<li><code>searchable_text(value)</code> (crates/storage/src/entity.rs) walks the JSON tree, keeps string
+   leaves, and joins them with ". ". <code>is_opaque</code> drops ≥32-char pure-hex strings, so ids and
+   hashes stay L1's business instead of flooding L2. Events index
+   <code>"&lt;type&gt; &lt;searchable_text(payload)&gt;"</code>.</li>
+<li><code>SearchService::find_in(project, query, kinds, limit)</code> runs the three §40 layers as one
+   pipeline: L1 <code>catalog::records</code> (structured filters, kind-scoped), L2 FTS5 <code>snippet()</code>
+   over the same scope, L3 <code>entity_links</code> walk in both directions skipping hits whose kind
+   the caller excluded. <code>find</code> is the no-filter delegate.</li>
+<li>An L1 hit with an empty body falls back to the title (<code>Record::hit</code>): §40 says a hit must
+   be explainable, and a blank snippet explains nothing.</li>
+<li><code>wp search [--kind …]</code> calls <code>find_in</code> and prints the layer label, score and snippet;
+   <code>wp reindex</code> re-encodes every entity and event through the same <code>searchable_text</code> path.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>A snippet now reads as the sentence the user wrote. The test
+  <code>crates/search/tests/retrieval.rs::a_hit_reads_as_prose_and_its_encoding_matches_nothing</code>
+  pins both halves: the prose appears, and <code>evidenceRefs</code> / <code>createdByEvent</code> / a 64-hex id
+  match nothing.</li>
+<li>§40's layer label is user-visible (<code>structured</code> / <code>full_text</code> / <code>relation</code>), so a hit can
+  still be explained after ranking changes.</li>
+<li>Databases written before this change need <code>wp reindex</code> (schema unchanged, content
+  rewritten); the log remains the source (§7.2), so reindexing is safe and repeatable.</li>
+<li><code>searchable_text</code> is deliberately shallow: it indexes what a record writes, not what a
+  renderer derives. Known limitation (<a href="../evolution/AEP-002-fts-to-hybrid-retrieval.md" title="docs/evolution">AEP-002</a>, now with reproduced evidence): FTS5
+  <code>unicode61</code> does not segment Chinese, so a multi-character query inside a longer Han run
+  does not match — while <code>guard-engine</code>'s own bigram tokenizer (crates/guard-engine/src/text.rs)
+  would have. Retrieval is currently the weaker CJK matcher of the two.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-019">ADR-019 — `.projectpack` is a stored zip whose manifest says &quot;projection, not a second source of truth&quot;</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §55; PROJECT_MASTER §19 禁止 4; ADR-002, ADR-011</span></div></div>
+<h3>Context</h3>
+<p>§55 requires six exports (timeline, project state, charter, decisions, AEPs, project map) and
+allows V1 to package them as <code>.projectpack</code> built from zip + json + md. The risk the master
+names repeatedly (禁止 4: 禁止维护两套 Project State) is a second materialized copy that
+drifts from the log. The packaging has to make its subordination legible to whoever unzips
+it months later.</p>
+<h3>Decision</h3>
+<p><code>wp export pack [FILE]</code> (default <code>project.projectpack</code>, apps/cli/src/export.rs) writes a zip
+containing:</p>
+<table>
+<thead>
+<tr>
+<th>member</th>
+<th>content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>manifest.json</code></td>
+<td>format / version / projectId / projectName / stateHash / members + the note</td>
+</tr>
+<tr>
+<td><code>project-state.json</code></td>
+<td>the reducer's read-only projection</td>
+</tr>
+<tr>
+<td><code>project-map.md</code></td>
+<td>the compiled map, byte-identical to <code>wp export map</code></td>
+</tr>
+<tr>
+<td><code>charter.json</code></td>
+<td>charter + scope + architecture baseline</td>
+</tr>
+<tr>
+<td><code>decisions.json</code>, <code>aep.json</code></td>
+<td>state sections</td>
+</tr>
+<tr>
+<td><code>timeline.json</code></td>
+<td>the accepted event log in <code>seq</code> order</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Everything is read through <code>project_read_only</code> and the same compiler the workbench uses:
+  exporting never advances a baseline, never appends an event, never saves a snapshot.</li>
+<li>Compression is <code>Stored</code>, not <code>Deflated</code>: every member is JSON or markdown, and a reader
+  without a zip codec should still be able to open the file. Size is not the point;
+  legibility is.</li>
+<li><code>manifest.stateHash</code> is the map's <code>source_state_hash</code>, so a pack states which state it
+  projects; the manifest carries the literal sentence "projection of the accepted log, not a
+  second source of truth". <code>apps/cli/tests/cli_e2e.rs</code> asserts that sentence, and that the
+  packed map equals the standalone <code>wp export map</code> byte for byte.</li>
+</ul>
+<h3>Consequences</h3>
+<ul>
+<li><code>timeline.json</code> is a mandatory member, not an option: a pack without the log could not be
+  replayed, and an unreplayable summary is exactly the second-source failure 禁止 4 warns
+  about.</li>
+<li>No import side exists in V1. An import would be a write path outside the event store
+  (禁止 7/禁止 4 again); a pack is for moving knowledge to a human or another agent, not
+  back in. Re-entering agent results is <code>wp import</code> / <code>wp event</code>, which go through the store.</li>
+<li>Secret values are never members; only refs appear, and §53's policy filter runs before any
+  adjacent context compile, so a pack is safe to hand to a cloud target for the same reason a
+  context pack is.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-020">ADR-020 — V1&#x27;s user surface is the CLI; two test layers, one implementation</h2>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (the e2e count grew; §38.5&#x27;s MCP door is now named)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026</span></div></div>
+<h3>Context</h3>
+<p>§14's acceptance list is behavioural ("选中一个问题即可交给任意 Agent"), not architectural.
+With the Tauri shell (ADR-006) not built, the CLI is the only surface a <em>human</em> can actually
+touch — which makes it the thing the acceptance test must exercise. Testing only the libraries
+would leave the argument layout, file reads and print formats unproven, and those broke in
+practice: flattened verbs (<code>wp audit</code>, not <code>wp view audit</code>) and zsh's non-word-splitting
+produced failures no library test could see. The one other surface V1 now has, <code>wp-mcp</code>
+(<a href="#adr-026">ADR-026</a>), faces an agent rather than a human and is deliberately built on these same ports,
+so it does not soften the rule below.</p>
+<h3>Decision</h3>
+<ul>
+<li><code>apps/cli</code> stays thin: parse, borrow files, call the same services the workbench will call,
+  print. No logic lives there that a desktop UI would have to reimplement — the concrete form
+  of "界面是核心逻辑的展示层，不是第二套逻辑" (PROJECT_MASTER §26).</li>
+<li><code>apps/cli/tests/golden.rs</code> (7 tests) drives the libraries against <code>tests/fixtures/</code> and
+  pins compiled artifacts, including that the six drift rules fire on the material they are
+  for and that replaying the same log twice yields the same state and map.</li>
+<li><code>apps/cli/tests/cli_e2e.rs</code> (17 tests as of 2026-10-05) spawns the real binary
+  (<code>env!("CARGO_BIN_EXE_wp")</code>) in a tempdir with <code>--db</code>, clearing <code>WP_DB</code> and
+  <code>VIBE_SECURITY_ALLOW_KEYCHAIN</code> so nothing leaks between tests. The suite walks §14's loop:
+  charter → transcript import → map save → pack → policy refusal → secret redaction →
+  prepare → six exports + <code>.projectpack</code> → routing advice → layered search → bound-directory
+  capture idempotence → capture refusal when unbound, and since the second round the same
+  loop through <code>evidence</code>, <code>backup create|verify|restore</code>, <code>adapters</code>, <code>watch</code> and <code>duplicates</code>.</li>
+<li>The e2e helper (<code>Workbench::ready</code>) is the smallest possible project — <code>init</code> with a
+  charter, <code>import transcript</code>, <code>map save</code>. A new test starts from those three lines, not a
+  bespoke fixture.</li>
+</ul>
+<h3>Consequences</h3>
+<ul>
+<li>The CLI's <em>shape</em> is contract: <code>Baseline</code>/<code>Capture</code>/<code>View</code> are flattened verbs
+  (<code>wp audit</code>, <code>wp import transcript</code>), while <code>Context</code>/<code>Policy</code>/<code>Secret</code>/<code>Export</code> are
+  subcommand groups (<code>wp context build</code>). Changing that is a breaking change and a test
+  change together.</li>
+<li>Feature correctness is still judged by using the binary: the four defects recorded in
+  <a href="#adr-018">ADR-018</a> were found by running it, not by the library suite. The e2e layer exists so the
+  next round starts from that instrument.</li>
+<li>The library tests stay the fast inner loop; the e2e suite spawns processes but is
+  deliberately small (17 tests) and runs in the same <code>cargo test --workspace</code>.</li>
+<li>When the Tauri shell (V1-E) lands it must go through the same ports. The CLI is not
+  scheduled for removal — it remains the workbench's headless form (<a href="#adr-016">ADR-016</a>).</li>
+<li>V1 now has two surfaces, not one: <code>wp</code> for the human and <code>wp-mcp</code> for an agent (<a href="#adr-026">ADR-026</a>).
+  The distinction this ADR protects is still exactly one — neither gets to hold logic. Both
+  are front doors over the same services, and a third door (the desktop UI) inherits that rule
+  rather than needing a new decision.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-021">ADR-021 — An adapter&#x27;s health has exactly four outcomes, and the last run replaces the one before</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §51, §58, §62 Degradation; PROJECT_MASTER §7.9, §13.2 Stage H</span></div></div>
+<h3>Context</h3>
+<p>Stage H asks for "Adapter Health", §62 asks that degradation be <em>reported</em> rather than
+hidden, and §51 is the case that makes both necessary: a partial ingestion where material
+landed but the cursor did not move. The schema already had an <code>adapter_states</code> table
+(frozen in §49), but a table with no agreed vocabulary produces a status field that means
+whatever the last writer needed it to mean — and "error" written by five adapters is five
+different claims about whether an adapter works.</p>
+<p>Silence is the failure mode here. An adapter that ingested nothing and said nothing is
+indistinguishable from one that is not installed, so the user cannot tell whether to fix
+something or to expect nothing.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>Four outcomes, each one something a pipeline run can actually observe</strong>
+   (<code>AdapterHealth</code>, crates/domain/src/agent.rs):
+   - <code>ok</code> — detected, ingested, cursor advanced.
+   - <code>unavailable</code> — <code>detect()</code> found no such source on this machine. Nothing was attempted,
+     so nothing failed.
+   - <code>degraded</code> — material landed but part of the run failed, in practice the cursor write.
+     The next run will re-send what is already stored and L1/L2 dedup will absorb it (§51).
+   - <code>failed</code> — the run produced nothing and the cursor stayed where it was.
+   <code>Unavailable ≠ Failed</code> is the load-bearing distinction: it is what keeps §62's honesty from
+   turning "this source is not here" into a bug report against an adapter that is fine.</li>
+<li><strong>One row per adapter, keyed by adapter id alone</strong> (<code>AdapterState { adapterId, health,
+   detail, updatedAt }</code>, crates/core/src/ports.rs <code>AdapterRepository</code>). Not per project: a
+   source that is absent from this machine is absent for every project on it. <code>record_state</code>
+   replaces the row, so <code>wp adapters</code> shows the current verdict and never a stack of history.</li>
+<li><strong>History stays where it already lives.</strong> The verdict is a cache of "what the last run
+   learned", not a log; the event log and the §54 audit table remain the record of what
+   happened. Inventing a second append-only history in <code>adapter_states</code> would be 禁止 4.</li>
+<li><strong><code>detail</code> is shown as-is</strong> — the error text or an empty-batch note, never a stack trace.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>Every pipeline run ends with an answer, including the runs that do nothing
+  (<code>crates/ingestion/tests/health.rs</code>: <code>a_clean_run_leaves_an_ok_verdict</code>,
+  <code>a_source_that_is_not_here_is_unavailable_not_failed</code>,
+  <code>material_that_landed_with_a_broken_cursor_is_degraded</code>,
+  <code>a_second_run_replaces_the_verdict_rather_than_stacking_history</code>).</li>
+<li><code>wp adapters [--json]</code> is the surface for Stage H's acceptance item, and it is a read of the
+  port rather than a re-derivation.</li>
+<li>Adding a fifth outcome means adding a state the pipeline cannot observe; the enum is the
+  place to argue about that, not the CLI's formatter.</li>
+<li>The table has no project column, so a future per-source, per-project health view is a
+  schema change plus an AEP, not a silent widening of <code>adapter_id</code>.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-022">ADR-022 — Watch signals are events with a verb in the payload, and they move no state</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §16, §39, §19; PROJECT_MASTER §7.2, §7.3, 禁止 9</span></div></div>
+<h3>Context</h3>
+<p>§39 asks for the working copy to be watched: which branch, what is uncommitted, which files
+appeared, changed or vanished. §16's catalogue lists <code>FILE_CHANGED</code> and <code>GIT_COMMIT</code> and says
+"at least", and two of the signals §39 names — branch and dirty status — had no type at all.</p>
+<p>Three questions had to be answered before writing anything, and each has a documented answer
+because the wrong one quietly breaks the project's core claim:</p>
+<ul>
+<li>Does "the tree got dirty" belong in <code>GIT_COMMIT</code>? No: <code>GIT_COMMIT</code> means <em>a commit exists</em>.
+  Folding a branch switch or a dirty tree into it would put facts in the log that history
+  does not contain.</li>
+<li>Does a file change belong in Project State? No: §19 makes completion a confirmed event, and
+  禁止 9 forbids treating an observation as the project's memory.</li>
+<li>Does V1 need a watcher process? No: 禁止 8. A daemon would need a lifecycle, a config file
+  and a failure mode that nothing in §13.2 accepts yet.</li>
+</ul>
+<h3>Decision</h3>
+<ol>
+<li><strong>Two new catalogue types</strong> for the git side, because they are different facts:
+   <code>GIT_BRANCH_CHANGED</code> and <code>GIT_STATUS_CHANGED</code> (crates/domain/src/event_catalog.rs, listed in
+   <code>ALL</code> so an unknown-type append still refuses them if they are ever removed).</li>
+<li><strong>One type for the file side</strong>, <code>FILE_CHANGED</code>, with the verb in the payload:
+   <code>payload.change ∈ {created, modified, deleted, baseline}</code> (<code>ScanKind</code>,
+   crates/ingestion/src/file_scan.rs). The signal §39 wants is "this path changed, and here is
+   how", and §16's list is a floor rather than a ceiling. One type keeps the dedup key honest —
+   the payload is part of the event's identity, so the same path re-reported with the same hash
+   appends nothing while a genuinely new hash does.
+   <code>baseline</code> exists because the <em>first</em> pass over a directory is not a claim that anything
+   changed; it is a snapshot the next pass can diff against.</li>
+<li><strong>Watching is a pass, not a process.</strong> <code>GitFacts::watch_workspace</code> reads branch and status
+   now, compares them against the snapshot the previous pass left in <code>settings</code>, and appends
+   only what differs. <code>FileScan::diff</code> does the same against recorded hashes. No thread, no
+   timer, no filesystem notification API — so the same code runs behind a <code>wp watch</code> call and
+   behind any future UI button, and nothing needs to be stopped or upgraded.</li>
+<li><strong>The reducer changes no state for any of these.</strong> They join <code>TEST_*</code> / <code>BUILD_*</code> in the
+   projector's "recorded, not folded" group (crates/state-engine/src/projector.rs), and each
+   becomes a Git- or File-typed evidence row. A dirty tree says <em>where</em> the work is.</li>
+<li><strong>A vanished file gets <code>ARTIFACT_DELETED</code>, not a silent row edit</strong> — the artifact's history
+   has to stay readable in the log, which is the only place §45 can point at.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li><code>wp watch [--dir] [--repo-id]</code> writes nothing when nothing changed:
+  <code>watching_twice_without_touching_anything_writes_nothing</code> and
+  <code>a_round_trip_over_the_same_paths_is_not_two_facts</code> pin idempotency, and
+  <code>watch_signals_fold_into_no_project_state_at_all</code> pins §19 by asserting the state hash is
+  identical before and after a pass that appended four events.</li>
+<li>A directory with no repository in it is reported as such rather than answered with an
+  invented branch (<code>a_directory_with_no_repository_in_it_is_reported_rather_than_invented</code>).
+  The git reads still go through the read-only subcommand allowlist (ADR round 1).</li>
+<li>§14's judgement flow is unchanged: a watcher event can be cited by a decision or a confirmed
+  completion, but it cannot produce one — which is exactly why the state hash stays put.</li>
+<li>A real file-system watcher remains an AEP-grade change, not a bug fix: it would change when
+  events are produced, not what they mean.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-023">ADR-023 — A backup is an online copy, made and restored through SQLite&#x27;s own backup API</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §55 Export/Backup, §62 Recovery; PROJECT_MASTER §7.5, §13.2 Stage H; ADR-019</span></div></div>
+<h3>Context</h3>
+<p>Round 1 shipped §55's export side, so a project could already leave the machine as six
+documents or one <code>.projectpack</code>. That is not a backup: a pack is <em>one project's projection</em>,
+compiled at a moment, and it carries none of the workbench's settings, audit rows, indexes or
+other projects. Stage H and §62 Recovery ask for the whole database to be copyable, verifiable
+and restorable, and round 1's own KNOWN ISSUES recorded that gap ("导出已经能当备份用，但没有
+restore 路径").</p>
+<p>Two naive implementations are wrong in ways that only appear under real use:</p>
+<ul>
+<li><code>std::fs::copy</code> of the main <code>.db</code> file freezes whatever the WAL has not yet checkpointed, so
+  a backup taken seconds after a write can silently lack it;</li>
+<li>restoring by swapping files replaces a database this very process still holds open, which
+  works on a laptop until it does not.</li>
+</ul>
+<p>A backup you cannot verify is not a backup, and a restore that cannot be refused is a way to
+lose work.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>SQLite's Online Backup API in both directions</strong> (crates/storage/src/backup.rs, rusqlite's
+   <code>backup::Backup</code>, 128 pages per step). Copy and restore go through the same mechanism the
+   engine uses to keep a WAL database consistent, so "the copy matches a committed state" is
+   the engine's claim rather than this crate's hope.</li>
+<li><strong><code>PRAGMA integrity_check</code> is the verdict</strong>, returned as SQLite's own string — <code>"ok"</code> or its
+   first complaint — inside <code>BackupReport</code> together with schema version and row counts. The
+   workbench never grades its own homework here.</li>
+<li><strong>Maintenance is a separate port, not a twelfth repository.</strong> <code>DatabaseMaintenance</code>
+   (<code>backup_to / integrity_check / inspect / restore / schema_version</code>) lives beside
+   <code>Repositories</code> in crates/core/src/ports.rs and <code>App</code> holds it as its own handle, because no
+   project logic reads the database <em>as a file</em> (§7.5). Paths are the only storage concept
+   allowed to cross it.</li>
+<li><strong><code>restorable(known_version)</code> gates every read path</strong>: a file whose schema is newer than
+   this build is refused before anything is copied, so a downgrade cannot half-succeed.</li>
+<li><strong>Restore is destructive, and says so four times</strong> (apps/cli/src/backup.rs):
+   - <code>create</code> refuses to copy a live database that is not whole;
+   - <code>restore</code> stops without <code>--yes</code>, having explained what will be discarded;
+   - restoring the live file onto itself is refused, because it would prove nothing;
+   - the current database is snapshotted first — and if <em>that</em> fails, the failure is only
+     warned, because Recovery must not be blocked by the safety net.</li>
+<li><strong>Secrets are out of scope on purpose.</strong> Values never entered SQLite (<a href="#adr-017">ADR-017</a>), so a backup
+   carries <code>secret_ref</code> strings and a restore moves no credential. The report says so.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li><code>wp backup create|status|verify|restore</code> covers §55's backup side and §62's Recovery verb;
+  <code>a_backup_returns_the_workbench_to_an_earlier_moment</code> (CLI) and six storage tests cover it,
+  including <code>restoring_discards_what_was_recorded_after_the_backup</code>,
+  <code>an_unrelated_sqlite_file_is_refused_as_a_backup</code> and
+  <code>a_missing_backup_is_not_found_rather_than_corrupt</code>.</li>
+<li><code>a_backup_reads_data_the_live_database_wrote_after_it_was_taken_nothing</code> pins the property
+  that matters most: the copy is a point-in-time snapshot, not a live view.</li>
+<li>A pack and a backup remain different artifacts for different jobs; neither is a substitute,
+  and the CLI's prose says which one it wrote.</li>
+<li>Backup files are plain SQLite databases, so <code>wp backup verify &lt;file&gt;</code> works on a file from
+  another machine — while <code>sqlite3 file .dump</code> also works, which is the escape hatch §62's
+  "report the degradation" clause wants to exist.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-024">ADR-024 — Level-3 near-duplicates are lexical hints, and a hint carries the thread it came from</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §52, §59, §60; PROJECT_MASTER §7.2, §19 禁止 9; AEP-002</span></div></div>
+<h3>Context</h3>
+<p>§52 splits deduplication into three levels and gives them two different powers. L1 (external
+id) and L2 (content hash plus role) are decided at insert and <em>drop</em> material, because "the
+same bytes again" is a fact a hash can prove. L3 is the soft case — two turns that say almost
+the same thing — and §52's rule for it is one clause: <strong>只提示，不直接删除</strong>.</p>
+<p>Round 1 shipped L1/L2 and left L3 with neither an implementation nor a surface, so "the same
+question twice this afternoon" was invisible. The tempting implementations were the two the
+spec forbids: merge the pair into one record, or write a hint into the event log as if it were
+a fact. The first destroys the trace §17 exists to keep; the second makes a guess a second
+state source (禁止 4).</p>
+<p>A second problem is cheaper to hit and worse: the scan needs <em>a window of recent messages</em>,
+and the port that returns them ordered by <code>observed_at</code> alone. A batch import stamps every row
+with the same timestamp, so which messages were in the window — and therefore which hints
+appeared — depended on the order SQLite's index happened to walk. Same database, different
+answer.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>Lexical, not semantic</strong> (crates/ingestion/src/near_duplicate.rs): Jaccard over token sets,
+   default threshold 0.8 — eight of ten distinct words agreeing. Semantic near-duplication
+   needs an embedding or a model, which §60 prices as a Strong Model call and 禁止 7 keeps out
+   of the core path; the vector version stays <a href="../evolution/AEP-002-fts-to-hybrid-retrieval.md" title="docs/evolution">AEP-002</a>'s job.</li>
+<li><strong>A CJK run is compared by character bigrams</strong>, matching the reasoning that
+   <code>guard-engine</code> already uses: Han has no spaces to split on, so a whole run would otherwise
+   be one token and two paraphrased Chinese turns would score 0.0. Deliberately a dumb
+   tokenizer, because a dumb one is checkable by eye.</li>
+<li><strong>Every hint carries its own caveat and its own thread.</strong> <code>note</code> is the constant
+   "both messages are still in the database; nothing was merged, deleted or rewritten", and
+   <code>conversation_id</code> names the thread — so a hint is actionable (<code>wp duplicates --conversation
+   &lt;id&gt;</code> re-runs scoped to exactly it) and a reader can check it against the records.</li>
+<li><strong>Bounded by construction</strong>: a 240-message window, a limit on pairs, results sorted
+   most-similar first, excerpts clipped on character boundaries so a truncated Chinese line
+   stays readable.</li>
+<li><strong>Cost is pruned before it is paid.</strong> Pairs grow as the square of the window, so
+   <code>similarity_upper_bound</code> rejects a pair from set sizes alone when no score could reach the
+   threshold — and the test proves the bound never rejects a pair the real score would accept.</li>
+<li><strong>The window's order became deterministic</strong>: <code>recent_messages</code> now reads
+   <code>ORDER BY observed_at DESC, rowid DESC</code> (crates/storage/src/conversation.rs) before
+   reversing. <code>rowid</code> is store-assigned and monotonic, so it is the tie-break the timestamp
+   cannot provide.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li><code>wp duplicates [--conversation &lt;id&gt;] [--threshold] [--window] [--limit]</code> is a read-only
+  command; there is no path from this module to a write, and <code>crates/ingestion/tests/near_duplicate.rs</code>
+  asserts exactly that (<code>the_pass_holds_no_way_to_write</code>).</li>
+<li>The CLI's e2e test closes the loop the way §52 wants it closed: import, take the hint, import
+  the <em>same</em> file again, and show that nothing was deleted — the second import reports the rows
+  as duplicates rather than fewer messages.</li>
+<li>Fixing the tie-break changed a documented property ("oldest first"), so it is stated here:
+  a projection whose inputs depend on index walk order is not deterministic, and §7.2's
+  replay promise is what that would have broken — the hint surface just happened to be the
+  first thing to read the window.</li>
+<li>Re-running the same scan is stable (the test asserts byte-identical JSON twice), which is what
+  lets a UI show hints without flicker later.</li>
+<li><a href="../evolution/AEP-002-fts-to-hybrid-retrieval.md" title="docs/evolution">AEP-002</a>'s trigger is unchanged. What is new is a lexical stand-in whose number is visible,
+  so a user who disagrees with a threshold can say so with evidence.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-025">ADR-025 — The adapter contract answers all seven verbs, and answers them only what it advertised</h2>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-06 (the CLI asks the fallback verb now)</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §37, §58, §62 Degradation, §7.8; PROJECT_MASTER §19 禁止 8; ADR-008 / AEP-003</span></div></div>
+<h3>Context</h3>
+<p>§58 names seven verbs — <code>detect</code>, <code>capabilities</code>, <code>ingest</code>, <code>open</code>, <code>prepare</code>, <code>inject</code>,
+<code>fallback</code> — and V1_DEVELOPMENT's acceptance line for the layer is that <strong>every</strong> adapter meets
+the contract. Round 1 shipped the first three plus <code>open</code>/<code>prepare</code>, and had no test that a
+<code>Box&lt;dyn AgentAdapter&gt;</code> could be asked all seven. <code>inject</code> was simply absent, and <code>fallback</code>
+existed only as prose inside <code>wp context prepare</code>'s printout, so the one verb §62 makes
+mandatory ("degradation is reported, never hidden") was the verb the trait could not answer.</p>
+<p>An SDK with default method bodies invites exactly one failure: an adapter that advertises
+<code>OPEN_APP</code> or <code>INJECT_TEXT</code> in its capabilities and then does nothing when the workbench calls
+for it. Nothing in the type system can prevent that, so the contract test has to.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong><code>inject</code> joins the trait</strong>, defaulting to <code>Ok(None)</code> like <code>open</code> and <code>prepare</code>. The verb
+   exists so that adding a real transport later is an <code>impl</code>, not a change to callers or to §58.</li>
+<li><strong><code>fallback</code> joins the trait, and defaults to an answer</strong> rather than to <code>Option</code>: a
+   <code>Fallback { adapterId, instruction, deepLink, payloadPath }</code> built from the adapter's own id
+   and its <code>deep_link(target)</code>. It is the only verb that cannot return nothing, because silence
+   is the failure §62 describes.</li>
+<li><strong>A rusted-shut adapter is still a complete adapter.</strong> Every write-side verb has a default,
+   so a reader that only implements the three required verbs answers all seven — which is what
+   lets V1 ship adapters that read and send nothing.</li>
+<li><strong>The review is capability honesty</strong>, run over every shipped adapter in
+   <code>crates/ingestion/tests/contract.rs</code>: no verb may be answered unless §37's <code>AgentCapabilities</code>
+   claims it, every claimed verb must be answerable, an absent source (<code>detect() == false</code>) is a
+   fact rather than a breach, and a fallback must name the payload the user is being asked to
+   carry. <code>a_thread_link_shows_up_in_the_fallback_it_belongs_to</code> covers the thread-scoped case.</li>
+<li><strong>The review is tested against itself.</strong> <code>an_adapter_may_not_answer_a_verb_it_did_not_advertise</code>
+   is a negative control: an adapter that claims <code>PREPARE_PAYLOAD</code> but never produces one is
+   named by the review. Without that test, a green suite would prove nothing, because defaults
+   make an empty adapter look compliant.</li>
+<li><strong>V1 ships no adapter that writes to an agent.</strong> <code>inject</code> is exercised by fixtures
+   (<code>Willing</code>, <code>WritesAFile</code>) and by the honest <code>None</code> from the real ones; <code>AUTO_EXECUTE</code> is
+   never claimed (§37), and §7.8 keeps sending a human action. Implementing the write side is
+   <a href="../evolution/AEP-003-builtin-to-plugin-adapters.md" title="docs/evolution">AEP-003</a>'s territory, not this round's (禁止 8).</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li><strong>Amended 2026-10-06:</strong> <code>wp context prepare</code> now prints the fallback verb's
+  own words. It did not at first — the sentence lived at the use site — and what this record
+  promised ("a one-line change with no behaviour difference") turned out to be too small a claim.
+  <code>vibe_ingestion::fallback_for()</code> is now the single place those words are written, the
+  trait's default <code>fallback()</code> calls through it, <code>--json</code> carries a
+  <code>fallback</code> object beside <code>copyFallback</code>, and the human output names the
+  <code>--out</code> file, because a fallback that does not say <em>which</em> payload to carry
+  leaves its own <code>payloadPath</code> lying empty.</li>
+<li>Adding an adapter means passing <code>review()</code>; a third-party adapter gets the same check as the
+  built-ins, which is the shape <a href="../evolution/AEP-003-builtin-to-plugin-adapters.md" title="docs/evolution">AEP-003</a> needs to make plugins plausible.</li>
+<li>A <code>payloadPath</code> of <code>None</code> means "the text is only in the terminal" — an explicit statement
+  rather than an absent field, so a UI cannot render a phantom file link.</li>
+<li>The gap this closes is honest about what remains open: the verbs are answerable, but the one
+  that would move a payload into another app still returns <code>None</code> for every adapter V1 ships,
+  and <a href="#adr-016">ADR-016</a> keeps that deferred rather than half-built.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-026">ADR-026 — The MCP surface is a second door onto the same ports, and it only opens inward</h2>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-06 (the §38.5 audit found the other direction unmet — <a href="#adr-028">ADR-028</a>)</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §38.5, §29, §53, §54, §59, §60, §62; PROJECT_MASTER §7.5, 禁止 4, 禁止 7, 禁止 8</span></div></div>
+<h3>Context</h3>
+<p>§38.5 asks for a "basic MCP interface" so an agent can reach the workbench directly. Round 1
+deferred it (<a href="#adr-016">ADR-016</a>) on the grounds that the context compiler already produced a
+<code>PreparedPayload</code>, which was true and still is: MCP adds an entry point, not a capability.</p>
+<p>Three ways to build it badly were available:</p>
+<ul>
+<li>a network server (a port to guard, a second lifecycle, and a cost §60 says the deterministic
+  chain does not have);</li>
+<li>a parallel implementation of "read a project" for the tool layer, which would be 禁止 4's
+  second state source with a new protocol on top;</li>
+<li>a write-capable surface, which would move §29's judgement — review, confirm, resolve — out of
+  the terminal, where a human is the one pressing return.</li>
+</ul>
+<h3>Decision</h3>
+<ol>
+<li><strong>stdio only.</strong> <code>crates/mcp-server</code> speaks MCP's newline-delimited JSON-RPC 2.0: one message
+   per line in, one answer per line out, <code>initialize</code> / <code>ping</code> / <code>tools/list</code> / <code>tools/call</code> and
+   the <code>notifications/initialized</code> notification (answered with silence, as the transport
+   requires). No async runtime, no HTTP: the crate's manifest declares no network or model
+   dependency, and <code>no_manifest_in_the_workspace_reaches_a_network_or_a_model</code>
+   (<a href="#adr-027">ADR-027</a>) is the test that keeps it that way.</li>
+<li><strong>Six tools, all reads, and the names are checked.</strong> <code>project_state</code>, <code>project_map</code>,
+   <code>project_timeline</code>, <code>search</code>, <code>open_evidence</code>, <code>context_pack</code>. The catalogue test asserts no
+   tool name contains <code>confirm</code>, <code>set_</code>, <code>create</code>, <code>delete</code>, <code>resolve</code> or <code>append</code> — a rename
+   that smuggles a verb in fails a test rather than a review.</li>
+<li><strong>Every tool body is a call to the service the CLI already calls</strong> — <code>Reducer</code>,
+   <code>ProjectMapCompiler</code>, <code>EventStore</code>, <code>SearchService</code>, <code>EvidenceRepository</code>,
+   <code>ContextCompiler</code> — all through <code>Repositories</code>. The server is a second surface, not a second
+   implementation (禁止 4, 禁止 7).</li>
+<li><strong><code>context_pack</code> goes through the same gate.</strong> Same Policy Filter, same §54 audit row, so a
+   pack that leaves down a pipe is no freer than one printed for the user, and the reading is
+   recorded either way.</li>
+<li><strong>Project resolution follows the CLI's order</strong> — explicit <code>projectId</code>, then the <code>--project</code>
+   the server started with, then the pointer <code>wp project use</code> left, then the lone project. With
+   two projects and no naming, the server refuses <strong>and lists them by id and name</strong>; guessing
+   would let one project's facts answer for another.</li>
+<li><strong>Three failure classes, kept apart.</strong> Unknown tool and malformed arguments are the client's
+   mistake, so JSON-RPC answers them (-32602). A workbench refusal is a <em>result</em> with
+   <code>isError: true</code> (§62: an agent reads it instead of inferring a crash). Blank queries, an
+   oversized <code>limit</code> and an over-threshold request are refused rather than silently truncated.</li>
+<li><strong>stdout is protocol, diagnostics are stderr.</strong> <code>wp-mcp</code> prints where it serves and how many
+   messages it answered to stderr only; <code>--print-config</code> emits the client snippet so a config
+   file is copied rather than invented.</li>
+<li><strong>The event-log tool reads oldest-first.</strong> The store returns its newest window in <code>seq DESC</code>
+   because that is what a <code>LIMIT</code> must cut from; the tool reverses it, so a model reading a
+   history reads it in the order it happened and a <code>limit</code> still means "the most recent ones".</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>§14's "发给任意 Agent" leg now has a standard read interface, while sending remains <a href="#adr-025">ADR-025</a>'s
+  human-carried fallback. Nothing in this crate can change a project's memory.</li>
+<li>A test can drive the whole protocol without a child process (<code>handle(&amp;str) -&gt; Option&lt;String&gt;</code>),
+  which is how eleven of the suite's tests run; <code>the_built_binary_serves_a_real_pipe</code> spawns the
+  actual <code>wp-mcp</code> to prove stdout stays protocol-only and a closed stdin is a clean exit. The
+  same two-layer discipline as <a href="#adr-020">ADR-020</a>.</li>
+<li>Isolation is per-call: a <code>search</code> never returns another project's record, which the suite
+  proves by putting a rare token in a second project.</li>
+<li>§38.5's <em>basic</em> interface is what shipped <em>in this direction</em>. Prompts, resources, sampling
+  and tool annotations are not in V1's acceptance list and are not scaffolded here (禁止 8);
+  adding one is a change to <code>dispatch</code>, not to the tools' contract. The other direction — the
+  workbench pulling an agent's conversation in over MCP — is <strong>not</strong> shipped, and
+  <a href="#adr-028">ADR-028</a> records it as owed rather than calling it out of scope.</li>
+<li>A <code>wp</code> subcommand for the server was not added: the server is started by a client's config, not
+  by a human typing, and <code>--print-config</code> covers the one thing a human needs to copy.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-027">ADR-027 — A performance budget is a work count first and a stopwatch number second</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §59, §60; PROJECT_MASTER §7.2, §7.9, §13.2 Stage H, 禁止 7, 禁止 8</span></div></div>
+<h3>Context</h3>
+<p>§59 asks for performance budgets on the deterministic chain (replay, projection, map compile,
+context compile) and §60 asks for a cost rule: the chain runs on hash, rules, SQLite, FTS, git,
+reducer and diff — no model, no network. Round 1 recorded both as undone.</p>
+<p>The obvious way to write these tests is to time something and assert a number. On a laptop that
+also runs a browser, that produces a suite which fails for reasons unrelated to the code and
+teaches the reader to ignore it. Meanwhile the claim §60 actually makes is a <em>dependency</em> claim,
+which no timing test can check.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>Two timed budgets, and only two.</strong>
+   - <code>FOLD_BUDGET_MS = 250</code> for the pure projection of a 1 200-event log, measured at ~40 ms on
+     this machine's debug build. Tight enough that turning one pass into an n² pass, or a fold
+     into a round trip, trips it immediately.
+   - <code>CHAIN_BUDGET_MS = 20_000</code> for the same chain <em>including</em> SQLite materialization, measured
+     at ~6 s. Deliberately loose: a disk-bound number on a loaded machine is not something a
+     suite may honestly assert, so this one is a hang and n² tripwire, not a benchmark.
+   A failure prints the per-stage costs, so a trip tells you what changed rather than only
+   failing.</li>
+<li><strong>Everything else is a work count, not a duration</strong>: which rows a read touched, how many
+   events a replay pulled, how many candidates a query scanned, how many manifests a rule read.
+   <code>opening_a_project_answers_from_stored_rows_not_from_the_log</code>,
+   <code>an_incremental_read_pulls_only_what_is_new</code>, <code>materialized_rows_read_back_the_projection</code>
+   and the two search tests (<code>an_indexed_query_does_not_cost_more_because_the_workbench_grew</code>,
+   <code>a_query_at_volume_returns_what_it_was_asked_for_and_no_more</code>) all assert counts.</li>
+<li><strong>The cache is proved a projection, not a second truth</strong>: materialized rows are compared
+   against the same state a pure fold produces — §59's speed must not cost 禁止 4's single source.</li>
+<li><strong>§60's cost rule is enforced in <code>Cargo.toml</code></strong> (<code>no_manifest_in_the_workspace_reaches_a_network_or_a_model</code>):
+   every workspace manifest is read and a banned list (reqwest, hyper, sqlx, openai, ollama,
+   tokio, axum, tonic, oauth2, …) must not appear, and <code>rusqlite</code> may appear in exactly one
+   manifest, <code>crates/storage</code>. A dependency edge is the cheapest place to make the claim
+   unbreakable and the only place that stays true after somebody adds a feature.</li>
+<li><strong>The fixture is sized to be a test, not a benchmark</strong>: 1 200 events, four rounds of
+   create/start/complete with a decision every fourth round. Large enough that a quadratic fold
+   is visibly wrong; small enough that the suite stays under a second per assertion path.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li><code>cargo test -p vibe-state-engine --test budgets</code> and <code>crates/search/tests/budgets.rs</code> are the
+  Stage H "Performance" acceptance evidence, and both run inside the ordinary suite.</li>
+<li>The manifest walk is now the reason the MCP server crate (<a href="#adr-026">ADR-026</a>) is on the list of checked
+  directories: adding an HTTP or model dependency there fails a test about §60, which is exactly
+  the coupling the rule wants.</li>
+<li>Timing bounds are stated with their measurements, so a slower machine knows what it is being
+  asked to tolerate; when a bound trips, the message carries the numbers, not just the assertion.</li>
+<li>This does not measure UI latency, memory or concurrency, and does not pretend to: V1 has no
+  surface those would apply to (<a href="#adr-016">ADR-016</a>).</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-028">ADR-028 — §38.5 is one door, not two: the read side is built, inbound MCP capture is owed</h2>
+<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-06</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §38.5, §37, §58, §60, 禁止 9; PROJECT_MASTER §14 #10, §26 V1-D; ADR-024, ADR-026, ADR-027</span></div></div>
+<h3>Context</h3>
+<p>§38 item 5 asks for "MCP 基础接口". The phrase has two readings, and they point in opposite
+directions:</p>
+<ol>
+<li><em>Someone else reads the workbench over MCP</em> — an agent connects to Codlas and pulls its
+   state. This is what <a href="#adr-026">ADR-026</a> shipped: <code>wp-mcp</code>, six read-only tools over the
+   same ports, same Policy Filter, same §54 audit.</li>
+<li><em>The workbench reads someone else over MCP</em> — Codlas connects to an agent's MCP server and
+   pulls the conversation the user had with that agent, so the progress panel updates from it.</li>
+</ol>
+<p>The goal the user states is reading 2: "软件通过获取 agent 那边和用户的聊天内容，以此为根据更新软件的进度面板".
+Round 2 had marked §38.5 done on the strength of reading 1 alone, which quietly dropped half the
+requirement. What actually exists for reading 2 today is a vocabulary and no transport:
+<code>SourceType::Mcp</code> and its <code>"mcp"</code> wire string are declared
+(<code>crates/domain/src/record.rs:21</code>), and <code>wp import transcript … --source-type mcp</code> will
+accept a file, but nothing in the workspace ever opens an MCP connection outward.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>§38.5 is recorded as half-done, not done.</strong> PROJECT_MASTER §26's V1-D line and the V1
+   gap audit both say so explicitly: outbound door built, inbound collector owed. Reading 2 is not
+   a new feature added to V1's scope — it is the same §38.5 item still standing.</li>
+<li><strong>The client is not built now, and its trigger is written down.</strong> Build it when a
+   counterparty the user actually uses exposes its conversation history over an MCP server the
+   workbench can call. Until then the requirement has no counterparty, and 禁止 9 forbids
+   implementing an untriggered feature ahead of need. The trigger is a fact about the outside
+   world, so it is checked when the user reports one, not by polling a registry.</li>
+<li><strong>The shape is fixed now so the later work is a mapping, not a redesign</strong> — an
+   <code>McpClientAdapter</code> in <code>crates/ingestion</code> answering §58's seven verbs:
+   <ul>
+   <li><code>detect</code> — a configured server command exists and answers an <code>initialize</code>.</li>
+   <li><code>capabilities</code> — inbound record reads only; never <code>AUTO_EXECUTE</code> (§37, §62).</li>
+   <li><code>ingest</code> — <code>tools/list</code>, pick a history tool, call it, normalize the answer into a
+     blank batch carrying <code>SourceType::Mcp</code>. Everything after that is the existing
+     normalizer → §52 dedup → reducer chain, unchanged.</li>
+   <li><code>open</code> / <code>prepare</code> / <code>inject</code> — stay <code>Ok(None)</code>; this adapter's job
+     ends at the Event Store.</li>
+   <li><code>fallback</code> — always answers, and its answer is the route that works today: export the
+     thread from the agent, then <code>wp import transcript &lt;file&gt; --source-type mcp</code>.</li>
+   </ul></li>
+<li><strong>Transport is constrained by <a href="#adr-027">ADR-027</a>'s manifest rule, and that is settled here
+   rather than discovered later.</strong> §60's ban list (<code>tokio</code>, <code>reqwest</code>, <code>axum</code>, …)
+   is enforced by a test over all 11 manifests, so an inbound client must be a blocking stdio child
+   process speaking newline-delimited JSON-RPC 2.0 — the same framing <code>wp-mcp</code> already
+   answers. Bringing an async runtime into the workspace would mean amending ADR-027, not editing a
+   <code>Cargo.toml</code>.</li>
+<li><strong>Reading 2 changes nothing about what chat content is allowed to be.</strong> Whatever an
+   MCP client pulls lands as Events and evidence; it never writes the panel, the map or Project
+   State directly, and a conversation is not project memory (禁止 9, <a href="#adr-022">ADR-022</a>). The panel
+   moves because those events were accepted and reduced — exactly how a transcript import moves it.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>§14 acceptance #10 — "agent 结果重新进入时间线" — does not depend on this owed item: the transcript
+  and CLI-session readers (<a href="#adr-025">ADR-025</a>) already close that loop. What is owed is one more
+  transport into the same loop, which is why recording it as debt costs nothing else.</li>
+<li><code>SourceType::Mcp</code> stays declared even though no shipped adapter produces it. That is now a
+  documented gap with a reason rather than an unexplained unused variant, and the wire string is
+  already part of the stored vocabulary (<a href="#adr-013">ADR-013</a>).</li>
+<li>When the trigger fires, the work is one adapter plus one registration and one contract-test row:
+  no new crate, no new port, no new table. Keeping the shape small is the point of writing it down
+  before building.</li>
+<li>V1's §62 gate list now names both outstanding V1-D halves (browser extension + Native Messaging,
+  inbound MCP) instead of claiming a surface it does not have.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="provenance">六、来源与变更</h2>
+<ul>
+  <li>本页正文由 <code>docs/adr/ADR-001…ADR-027</code> 共 <b>19</b> 份 markdown 汇总而成，
+    汇总于 2026-10-05。<strong>决定的措辞未作任何修改</strong>；改变的只有载体。</li>
+  <li><b>ADR-028</b>（2026-10-06）是介质变更之后的第一条：直接在 HTML 里追加，没有对应的 <code>.md</code> 原文，
+    因此上面的"19 份"仍然准确，本页总条数为 <b>20</b>。</li>
+  <li>原来的 <code>.md</code> 文件已按用户要求删除，内容只在本页保留。
+    仓库内所有指向 <code>docs/adr/ADR-0NN-*.md</code> 的链接已改指本页锚点。</li>
+  <li>需要 git 历史里的原文时：<code>git show 54cdb5d:docs/adr/&lt;文件名&gt;.md</code>。</li>
+  <li>生成方式：<code>python3</code> + <code>markdown</code>（fenced_code / tables / sane_lists），
+    脚本是一次性的；本页之后的更新直接在 HTML 里改，与任务报告同一规则。</li>
+</ul>
+
+<footer>
+  构览 Codlas · ADR 总览 · 2026-10-05 汇总 / 2026-10-06 追加 ·
+  条款号指向 <a href="../../V1_DEVELOPMENT.md">V1_DEVELOPMENT.md</a> 与
+  <a href="../../PROJECT_MASTER.md">PROJECT_MASTER.md</a>；
+  流水记录见 <a href="../RECORDS.md">docs/RECORDS.md</a>；
+  前瞻性架构意图见 <a href="../evolution/">docs/evolution/</a>。
+</footer>
+
+</main>
+</body>
+</html>

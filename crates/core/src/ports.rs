@@ -4,8 +4,8 @@
 //!
 //! The eight ports named in §6 are all here. Three more were added because the
 //! documented tables deserve their own contract: [`EvidenceRepository`] and
-//! [`AuditRepository`] (see docs/adr/ADR-013), and [`AdapterRepository`] for
-//! `adapter_states` (see docs/adr/ADR-021).
+//! [`AuditRepository`] (see `docs/adr/ADR-总览.html#adr-013`), and [`AdapterRepository`] for
+//! `adapter_states` (see `docs/adr/ADR-总览.html#adr-021`).
 //!
 //! [`DatabaseMaintenance`] is the one port deliberately absent from [`Repositories`]:
 //! no project logic reads the database as a file, so only the workbench surface holds it.
