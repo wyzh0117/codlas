@@ -270,6 +270,10 @@ webview 的<em>像素</em>仍是人工核对，这条限制与 ADR-029 给桌面
   就能驱动整条读路径；末一条把 Rust 载荷的键与 <code>app.js</code> 读的键逐个对上，正是第四轮对接时找出两处不一致的那类断言）、
   扩展侧只有 <code>node --check</code>——V1 不为它装 JS 测试框架（§60 的成本规则），
   协议的断言全部在 Rust 那一侧。
+  <p class="sub">这个 300 是同一轮里<b>第二次</b>跑出来的：第一次跑完之后桌面壳那侧还落了最后一批测试，
+  而 299 / views 22 已经写进了四份文档。比对 mtime 发现 <code>tests/views.rs</code> 的写入晚于那次
+  <code>cargo test</code> 的开始，于是重跑并把数字改回来——账面数字的来源只能是"跑过的那一次"，
+  不能是"我以为跑过的那一次"。这条自纠也记在 <a href="docs/RECORDS.md">docs/RECORDS.md</a> 第四节。</p>
 </div>
 
 <h2 id="stages">八、V1-A … V1-H 逐段状态（§21）</h2>
