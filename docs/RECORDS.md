@@ -69,8 +69,11 @@
 四层里变化最大的是桌面壳视图：`apps/desktop/tests/views.rs` 从 12 条到 **23 条**，`cli_e2e` 从 20 到 **22**，
 `integration` 到 **15**，`watch` 到 **7**，新建的 `resolution` **3**，`map_and_snapshot` **10**。
 第 23 条是这一轮跑完之后再补的一条线：`the_new_answers_reach_the_webview_under_the_keys_it_reads` 不检查渲染，
-它检查 Rust 序列化出来的键名与 `app.js` 里 `view.` 后面读的那些**逐个对得上**——第四轮对接宿主时找出的
-两处不一致，正是这种"两侧各写各的、谁都测自己那一半"能长期藏住的东西。
+它把两个新视图序列化出来的 camelCase 键名钉死（`nextActions`、`originalProblem`、`replaceableParts`、
+`whyNotNow`……），Rust 一侧改个名就会红——webview 拿到 `undefined` 这种事因此在 Rust 这一侧被拦住了。
+写这一段时我先把它说成"与 `app.js` 读的键逐个对上"，去读测试本身才发现它并不解析 JS 文件：
+JS 一侧单方面改名仍然只有人打开窗口才会看见，那正是 ADR-029 已经点名的人工核对，不是这一层能声称的东西。
+一个测试的名字描述得比它做的事多，和被测的界面描述得比它做的多，是同一类账。
 
 这个 300 不是重新数一遍的结果，而是**同一轮里第二次跑**的结果：第一次跑完之后桌面壳那侧还落了最后一批
 测试，我先把上一轮记的 299 / views 22 当成结论写进了四份文档，才去比对文件时间戳，发现

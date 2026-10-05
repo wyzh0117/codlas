@@ -722,7 +722,12 @@ second door onto one implementation, not a second implementation.</p>
   (<a href="#adr-029">ADR-029</a>). The doubling is round five&#x27;s: the audit found that a registered command and a
   view builder prove nothing about the screen they feed, so §46&#x27;s six questions and §47&#x27;s five legs now have
   assertions of their own — including that a question the records cannot answer surfaces as a
-  <code>Gap</code> with a reason instead of a blank box.</li>
+  <code>Gap</code> with a reason instead of a blank box. The 23rd is a different kind of assertion:
+  <code>the_new_answers_reach_the_webview_under_the_keys_it_reads</code> freezes the camelCase keys the two new views
+  serialise (<code>nextActions</code>, <code>originalProblem</code>, <code>replaceableParts</code>, <code>whyNotNow</code>&#x2026;),
+  so a Rust-side rename that would hand the webview <code>undefined</code> turns the suite red. What it does not do is read
+  <code>app.js</code>: a one-sided change on the JS half still only shows up when a person opens the window, which is
+  the residue ADR-029 already names rather than a new layer this ADR can claim.</li>
 <li><strong>A fourth, for the door that has no surface of its own (2026-10-06, round four):</strong>
   <code>crates/ingestion/tests/native_messaging.rs</code> (13 tests) is the browser side&#x27;s equivalent of the views layer —
   it drives <code>NativeHost::handle</code> / <code>serve</code> over in-memory pipes, so §35&#x27;s five refusals, the idempotent

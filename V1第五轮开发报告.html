@@ -267,7 +267,8 @@ webview 的<em>像素</em>仍是人工核对，这条限制与 ADR-029 给桌面
   库（golden 7 条 + 各 crate 套件 + <code>native_messaging</code> 13 条 + 新建 <code>resolution</code> 3 条 +
   <code>map_and_snapshot</code> 10 条 + <code>integration</code> 15 条）、
   真二进制（<code>cli_e2e</code> <b>22</b> 条）、桌面壳视图（<code>views.rs</code> <b>23</b> 条，比上一轮翻倍——不启动 webview
-  就能驱动整条读路径；末一条把 Rust 载荷的键与 <code>app.js</code> 读的键逐个对上，正是第四轮对接时找出两处不一致的那类断言）、
+  就能驱动整条读路径；末一条把两个新视图序列化出来的 camelCase 键名钉住，Rust 一侧改名即红，
+  但它<b>不解析</b> <code>app.js</code>，JS 一侧单方面改名仍属 ADR-029 说的人工核对）、
   扩展侧只有 <code>node --check</code>——V1 不为它装 JS 测试框架（§60 的成本规则），
   协议的断言全部在 Rust 那一侧。
   <p class="sub">这个 300 是同一轮里<b>第二次</b>跑出来的：第一次跑完之后桌面壳那侧还落了最后一批测试，

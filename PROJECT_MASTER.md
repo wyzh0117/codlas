@@ -1028,10 +1028,12 @@ LAST COMPLETED:
   四层：库（golden + 各 crate 套件，`native_messaging` 13 条、新建 `resolution` 3 条、`map_and_snapshot` 10 条、
   `integration` 15 条）、真二进制（`cli_e2e` 22 条）、桌面壳视图（`apps/desktop/tests/views.rs` **23 条**，
   比上一轮翻倍：§46 六问与 §47 五段各自有断言，末一条 `the_new_answers_reach_the_webview_under_the_keys_it_reads`
-  把 Rust 载荷的键与 `app.js` 读的键逐个对上——V1-D 对接时找出的两处不一致就是这类断言该拦住的东西）、
+  把两个新视图序列化出来的 camelCase 键名钉住（`nextActions` / `originalProblem` / `whyNotNow` 等），
+  Rust 一侧改名就会红；它**不解析** `app.js`，所以 JS 一侧单方面改名仍要靠 ADR-029 说的人工核对——
+  这一半不是这一层能声称的）、
   扩展侧只有 `node --check`——V1 不为它装 JS 测试框架（§60 的成本规则），协议的断言全部在 Rust 那一侧
 - 本轮收尾两处：上一轮记的 **299 / views 22** 是桌面壳 agent 最后一批测试落地**之前**的数字，
-  按跑完的那一次改定为 **300 / 23**（第 23 条是载荷键与 `app.js` 读取键的对照，不是新增断言主题）；
+  按跑完的那一次改定为 **300 / 23**（第 23 条钉的是 Rust 序列化出来的键名，不是一个新主题）；
   第四、五轮两次未提交的改动合成一个提交 `bd88311`，连同第三轮 `b80669a` 一起推到私有仓库，
   工作树干净、`main` 与 `origin/main` 一致。
 
