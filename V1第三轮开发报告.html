@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>构览 Codlas · V1 第三轮开发报告（2026-10-06）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --ink:#e6e9ef; --muted:#9aa4b2;
+    --line:#252b35; --ok:#3fb950; --warn:#d29922; --no:#f85149; --accent:#58a6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif}
+  main{max-width:1080px;margin:0 auto;padding:40px 24px 96px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+  h2{font-size:19px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+  p{margin:10px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12.5px;color:var(--muted)}
+  .badge b{color:var(--ink);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h4{margin:0 0 4px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .card .v{font-size:22px;font-weight:650}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel);color:var(--muted);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+  td code,li code,p code{background:#1c2230;border:1px solid var(--line);border-radius:4px;
+    padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ok{color:var(--ok);font-weight:600}
+  .warn{color:var(--warn);font-weight:600}
+  .no{color:var(--no);font-weight:600}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid #24313f}
+  a:hover{border-bottom-color:var(--accent)}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:4px 0}
+  pre{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .callout{border-left:3px solid var(--accent);background:var(--panel);
+    padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  nav{position:sticky;top:0;background:rgba(15,17,21,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin:-40px -24px 28px;z-index:2}
+  nav .in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+  nav a{border:0;color:var(--muted)}
+  nav a:hover{color:var(--accent)}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+
+<nav><div class="in">
+  <a href="#scope">本轮范围</a>
+  <a href="#shell">桌面壳</a>
+  <a href="#click">§14 第 7 项</a>
+  <a href="#defects">顺带修掉的缺陷</a>
+  <a href="#tests">测试</a>
+  <a href="#audit">V1 完成度清点</a>
+  <a href="#docs">回写的文档</a>
+  <a href="#deferred">仍然没做</a>
+  <a href="#run">怎么跑</a>
+</div></nav>
+
+<h1>构览 Codlas · V1 第三轮开发报告</h1>
+<div class="sub">把上一轮"立刻收尾"与"接着做"的部分做完，并对整个 V1 阶段做一次完成度清点 · 2026-10-06 · 分支 <code>main</code> · 私有仓库 <code>wyzh0117/codlas</code></div>
+
+<div class="badges">
+  <span class="badge">测试 <b>265 passed · 0 failed · 1 ignored</b></span>
+  <span class="badge">构建 warning <b>0</b></span>
+  <span class="badge">V1-E <b>⏳ → ✅</b></span>
+  <span class="badge">桌面壳命令 <b>12（11 读 + 1 确认）</b></span>
+  <span class="badge">§21 八屏 <b>8 / 8</b></span>
+  <span class="badge">ADR 修订 <b>ADR-029 · ADR-030（各一次）</b></span>
+</div>
+
+<div class="grid">
+  <div class="card"><h4>上一轮 → 本轮</h4><div class="v">260 → 265</div><div class="sub">测试总数（+5：三屏 + 点选 + CLI <code>--select</code>）</div></div>
+  <div class="card"><h4>桌面壳视图</h4><div class="v">12 条</div><div class="sub"><code>apps/desktop/tests/views.rs</code>，不启动 webview</div></div>
+  <div class="card"><h4>真二进制 e2e</h4><div class="v">19 条</div><div class="sub"><code>apps/cli/tests/cli_e2e.rs</code></div></div>
+  <div class="card"><h4>V1 边界内还欠</h4><div class="v">3 件</div><div class="sub">清掉了 2 件（桌面壳、§14 第 7 项）</div></div>
+</div>
+
+<h2 id="scope">一、本轮范围</h2>
+<p>上一轮的记录把话说清楚了两件事：桌面壳不存在（V1-E 是 ⏳），以及 §14 第 7 项"用户点击某个 Issue"<strong>缺手势不缺逻辑</strong>。
+本轮把这两件做完，并且在做的过程中让 <a href="docs/adr/ADR-总览.html#adr-030">ADR-030</a> 的第二种后果现形——
+它不是壳自己的毛病，是事件链上的缓存在另一条读路径上等着。</p>
+<div class="callout">
+  <strong>本轮三条硬约束。</strong>
+  ① 壳只能显示引擎算出来的东西，唯一的写是 §7.4 的确认（禁止 4 / 禁止 7）；
+  ② 补屏幕不等于补能力——三块新屏幕都是既有端口的薄展示，不新增事件类型（禁止 8）；
+  ③ 没输入就拒绝，不替用户猜出一份空包（§62 Degradation）。
+</div>
+
+<h2 id="shell">二、桌面壳：<code>apps/desktop</code>（Tauri 2）</h2>
+<p>十二个命令里十一个是只读视图，唯一的写是 <code>apply_pending</code>，它逐条走 <code>accept_change_proposal</code> / Inbox 判定。
+数据库路径与当前项目都由 <code>vibe_cli::app::App</code>（CLI 自己的 runtime）给出，所以窗口和终端不可能各挑一套项目状态。</p>
+<table>
+  <tr><th>屏幕</th><th>命令</th><th>数据来源</th><th>本轮状态</th></tr>
+  <tr><td>① 变动（第一屏）</td><td><code>diff_view</code> / <code>apply_pending</code></td><td>上一次快照 → 现在的折叠 diff；待确认条目自带 <code>actions</code></td><td class="ok">已有</td></tr>
+  <tr><td>② 项目地图</td><td><code>map_view</code></td><td><code>ProjectMapCompiler::compile</code></td><td class="ok">已有</td></tr>
+  <tr><td>总览</td><td><code>overview_view</code></td><td>折叠出来的记录按类型数一遍 + 基线版本 + <code>state_hash</code> + 最新快照</td><td class="ok">本轮新增</td></tr>
+  <tr><td>决策</td><td><code>decisions_view</code></td><td><code>Decision</code> 行：锁定态、备选、被谁取代、证据；<strong>不提供编辑</strong></td><td class="ok">本轮新增</td></tr>
+  <tr><td>演进 / AEP</td><td><code>evolution_view</code></td><td><code>AEP_CREATED</code> 折叠出的记录，默认 <code>dormant</code>——说"什么时候该改"，不是在建工程</td><td class="ok">本轮新增</td></tr>
+  <tr><td>时间线</td><td><code>timeline_view</code></td><td>已接受事件日志</td><td class="ok">已有</td></tr>
+  <tr><td>偏航 / Inbox</td><td><code>drift_view</code></td><td>规则命中 + Inbox 条目</td><td class="ok">已有 · 本轮加"带它去上下文"</td></tr>
+  <tr><td>检索</td><td><code>search_view</code></td><td>L1 结构化 / L2 FTS5 / L3 关联同一管线</td><td class="ok">已有 · 本轮加"带它去上下文"</td></tr>
+  <tr><td>上下文预览</td><td><code>context_view</code></td><td>§42 阶梯 · §43 预算 · §53 Policy Filter · §7.8 复制兜底</td><td class="ok">已有 · 本轮加 <code>select</code> 聚焦</td></tr>
+  <tr><td>健康与备份</td><td><code>health_view</code> / <code>project_info</code></td><td><code>wp adapters</code> 判词 · <code>wp duplicates</code> 提示 · <code>wp backup status</code> 结论</td><td class="ok">已有</td></tr>
+</table>
+<p>上一轮说"桌面壳做完"其实是 <strong>7 / 8</strong>：对着 §21 逐屏点过才发现总览、决策、演进三块没有屏幕。本轮补齐，于是 §26 的 V1-E 第一次名实相符地打上 ✅。</p>
+
+<h2 id="click">三、§14 第 7 项：那只手，以及"引用就是意图"</h2>
+<ul>
+  <li><strong>交互。</strong>偏航屏每条提示、检索屏每一行都带一个「带它去上下文 →」；上下文屏多出一个 <code>kind:id</code> 聚焦框，
+点击会自动填进去并立刻编译一版。包自己会说聚焦在哪一条（<code>ContextView.focus</code>），不会让一版聚焦包长得像通用包。</li>
+  <li><strong>点了就不需要再写问话。</strong>引用本身就是意图：壳按 CLI 完全相同的方式把它写成 <code>context for issue:I-1</code>，
+并把那条记录放到 §42 阶梯的第 1 层（priority 1、必带上）。</li>
+  <li><strong>不另写第二套引用语法。</strong><code>vibe_cli::context::parse_ref</code> 从 CLI 私有改为 <code>pub</code>，桌面壳直接复用；
+少了 <code>kind</code> 的引用（<code>I-1</code>）与"既没问话也没点选"都是<em>拒绝</em>，不是一份能过预算的空包。</li>
+  <li><strong>测试。</strong><code>a_click_on_a_record_focuses_the_pack_without_a_sentence</code>（<code>views.rs</code>）
+与 <code>a_selected_record_travels_at_the_top_of_the_ladder</code>（<code>cli_e2e.rs</code>）分别钉住壳与 CLI 两扇门。</li>
+</ul>
+
+<h2 id="defects">四、顺带修掉的缺陷</h2>
+<div class="callout warn">
+  <strong>ADR-030 的第二种后果：§42.1 的"用户显式选择"经物化出来的实体行解析。</strong>
+  <code>retrieve.rs</code> 的 <code>selected()</code> 走 <code>repos.entities.get(kind, id)</code>，而那些行是<em>折叠的缓存</em>。
+  于是：刚 <code>wp event</code> 追加一条 Issue、还没跑过 <code>wp map</code> 时，<code>wp context plan --select issue:I-1</code>
+  答的是 <code>not found in this project</code>——缺陷在桌面壳的测试里第一次暴露（12 条测试跑到第 12 条时红了）。
+</div>
+<ul>
+  <li><strong>修法不是再造一条读路径。</strong>编译包之前显式调用一次 <code>Reducer::project_state</code> 写穿缓存：
+CLI 的 <code>context dispatch</code>、<code>wp-mcp</code> 的 <code>context_pack</code>、桌面壳的 <code>context_view</code> 各一行。
+<code>wp map</code>（<code>ProjectMapCompiler::compile</code>）与快照本来就是同一个动作，所以这不是第二套状态（禁止 4）。</li>
+  <li><strong>覆盖补齐。</strong><code>--select</code> 此前只有引擎层测试（<code>pack_order.rs</code>），CLI 的 flag → request 那条线没人守；本轮补上。</li>
+  <li><strong>顺手记下的构建事实</strong>（都在 ADR-029 的 build notes 里）：<code>tauri::generate_context!</code> 要求 <code>icons/icon.png</code> 是真 RGBA PNG（调色板 PNG 直接编译失败）；camelCase 的 JS 参数对应 snake_case 的 Rust 形参（<code>maxTokens</code> → <code>max_tokens</code>）。</li>
+  <li><strong>清理。</strong>删掉临时目录 <code>vibe_images/</code>（生成图标时的中间产物，未被任何文件引用；<code>apps/desktop/icons/icon.png</code> 才是真正被打包的那一张）。</li>
+</ul>
+
+<h2 id="tests">五、测试与预算</h2>
+<pre>export PATH="$HOME/.cargo/bin:$PATH"
+cargo test --workspace                 # 265 passed / 0 failed / 1 ignored（Keychain 需 opt-in）
+cargo build -p wp-desktop --bins       # 通过，零 warning
+node --check apps/desktop/ui/app.js    # 前端语法</pre>
+<table>
+  <tr><th>层</th><th>位置</th><th>数量</th><th>守的是什么</th></tr>
+  <tr><td>库</td><td><code>crates/*</code> 各套件 + <code>tests/golden.rs</code></td><td>234</td><td>折叠、保真、预算、Policy Filter、备份、契约</td></tr>
+  <tr><td>真二进制</td><td><code>apps/cli/tests/cli_e2e.rs</code></td><td>19</td><td>用户真的敲的那条命令，包括本轮的 <code>--snapshot</code> 基线与 <code>--select</code> 插队</td></tr>
+  <tr><td>桌面壳视图</td><td><code>apps/desktop/tests/views.rs</code></td><td>12</td><td>十个只读屏幕 + 一次确认，全部从真实 store 编译出来</td></tr>
+</table>
+<p class="sub">§59 / §60 的预算没有变动：纯折叠 ≤250 ms（实测 ~40 ms）、整条链 ≤20 s 的 tripwire（实测 ~6 s）、12 份 manifest 的依赖扫描里 GUI 与 MCP 都开不了网络。</p>
+<div class="callout"><strong>仍然如实说没覆盖的：</strong>webview 的像素是手工核对的。"12 条测试通过"不等于"渲染正确"——这句话写在 ADR-029 的后果里，本轮把它从 8 改成 12，但没有改口。</div>
+
+<h2 id="audit">六、V1 完成度清点（本轮对着文档逐条走）</h2>
+<table>
+  <tr><th>阶段</th><th>状态</th><th>说明</th></tr>
+  <tr><td>V1-A Foundation</td><td class="ok">✅</td><td>monorepo、端口、SQLite/FTS5、事件存储</td></tr>
+  <tr><td>V1-B Project Baseline</td><td class="ok">✅</td><td>Charter / Scope / Baseline 与版本</td></tr>
+  <tr><td>V1-C State Engine</td><td class="ok">✅</td><td>Reducer + 物化状态 + PROJECT_MAP + 快照 / diff；ADR-030 之后创建事件带整条记录</td></tr>
+  <tr><td>V1-D Capture</td><td class="warn">◐</td><td>核心 + CLI + 入站证据管线已在；<strong>两半仍欠</strong>：浏览器扩展 + Native Messaging（<code>open</code> / <code>inject</code> 至今只有默认 <code>Ok(None)</code>）、以及 §38.5 <em>入站</em> MCP 采集（ADR-028）</td></tr>
+  <tr><td>V1-E Workbench</td><td class="ok">✅</td><td><strong>本轮从 ⏳ 转 ✅</strong>：§21 的八屏全部有命令与构造器，第一屏流程按用户拍定的顺序实现</td></tr>
+  <tr><td>V1-F Context Engine</td><td class="ok">✅</td><td>阶梯 / 预算 / Policy Filter / audit；本轮补上"选中的记录"在 CLI 与壳上的落地</td></tr>
+  <tr><td>V1-G Guard</td><td class="ok">✅</td><td>词法规则只提议、不替你决定</td></tr>
+  <tr><td>V1-H Hardening</td><td class="ok">✅</td><td>导出 / 备份恢复 / 审计 / adapter 健康 / 监听 / 预算 / golden / e2e</td></tr>
+</table>
+<h3>§62 七门</h3>
+<p>Continuity ✅ · Fidelity ✅ · Traceability ✅ · Drift ✅ · Recovery ✅ · Degradation ✅（"没输入就拒绝"与复制兜底都在测试里）·
+<strong>Context ◐</strong>——能编译、能在桌面上点一行聚焦、能被 agent 经 <code>wp-mcp</code> 读走，缺的仍是"把包送进去"的那条写面（与 V1-D 同一轮）。</p>
+<h3>§14 十条验收</h3>
+<p>第 1、4、5、<strong>7</strong>、8、9、10 项在核心、CLI、MCP 读面与桌面壳上都已具备（第 7 项本轮补上手势）；第 2、3、6 项可从 CLI 走到；
+"发送进另一个 Agent"仍缺真实传输。</p>
+<h3>边界自检（§19 禁止 1–10）</h3>
+<ul>
+  <li>禁止 1 团队/企业功能：未引入。</li>
+  <li>禁止 2 普通 Todo/Kanban：总览屏是<em>折叠结果的计数</em>，不是待办列表，且明写"要看某一条去时间线或项目地图"。</li>
+  <li>禁止 3 / 4 / 5 / 6：壳不建第二套状态、不 detach 决策于 Charter/Context、不重写 Charter、提案不经确认不成事实。</li>
+  <li>禁止 7：模型不参与这些屏的编译。</li>
+  <li>禁止 8：<strong>本轮三块新屏幕全部是既有端口的展示层</strong>；AEP 屏显示 <code>dormant</code> 而不是在建工程。</li>
+  <li>禁止 9：聊天记录没有出现在任何一屏的事实来源里。</li>
+  <li>禁止 10：本轮改动全部挂在 §21（八屏）、§14 第 7 项、§61 V1-E 与 §62 上，关系写在 ADR-029 / ADR-030 的修订里。</li>
+</ul>
+
+<h2 id="docs">七、本轮回写的文档</h2>
+<h3>总控文件</h3>
+<ul>
+  <li><a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a> — §20 四块（V1-E 三条新要点 + §14 第 7 项落地 + 265 的测试计数 + NEXT TARGET 只剩入站 MCP 一件债）、§26 阶段列表（<strong>V1-E ⏳ → ✅</strong>；V1-D 仍 ◐ 且写明两半都欠）。</li>
+  <li><a href="docs/RECORDS.md">docs/RECORDS.md</a> — 新增一节 <em>2026-10-06 · V1-E 桌面壳落地，八屏齐了</em>：做了什么、缺陷怎么现形、还欠三件、§62 七门现状、回写清单。</li>
+  <li><a href="V1_DEVELOPMENT.md">V1_DEVELOPMENT.md</a> — 未改：它是冻结的目标文档，本轮只实现与对账，不改它的条款。</li>
+</ul>
+<h3>ADR（就地修订两条，无新增）</h3>
+<ul>
+  <li><a href="docs/adr/ADR-总览.html#adr-029">ADR-029</a> — 桌面壳是 CLI 同一个 runtime 的第二扇门，唯一的写是 §7.4 的确认。
+本轮修订加两条：§14 第 7 项的那只手（点一行＝意图、复用 <code>parse_ref</code>、没输入就拒绝），以及"12 条通过 ≠ 像素正确"的原始措辞同步。
+<a href="docs/adr/ADR-总览.html#adr-029">正文</a> · <a href="docs/adr/README.md">索引行</a></li>
+  <li><a href="docs/adr/ADR-总览.html#adr-030">ADR-030</a> — 创建事件必须携带整条记录，因为折叠只从日志重建行。
+本轮修订加一条后果：<strong>同一份缓存在 §42.1 的选择路径上第二次咬人</strong>，出路是显式物化而不是新增读路径。
+<a href="docs/adr/ADR-总览.html#adr-030">正文</a> · <a href="docs/adr/README.md">索引行</a></li>
+  <li><a href="docs/adr/ADR-总览.html#adr-020">ADR-020</a> / <a href="docs/adr/ADR-总览.html#adr-027">ADR-027</a> — 计数同步（e2e 19 条、views 12 条；manifest 12 份）。</li>
+  <li><a href="docs/adr/README.md">docs/adr/README.md</a> — 页内 22 条；下一条从 <strong>ADR-031</strong> 起。</li>
+</ul>
+
+<h2 id="deferred">八、仍然没做（如实列出）</h2>
+<ul>
+  <li><strong>V1-D 浏览器扩展（Chrome MV3）+ Native Messaging host</strong>（§34 / §35 / §38.2 / §38.3 / §58 E2E）：
+§35 的五条校验（origin / command / payload / size / project scope）是那一轮的验收点，不是可选项。</li>
+  <li><strong>§14 第 9 项"发送进另一个 Agent"</strong>：payload 与复制兜底都齐了，缺的是任何 adapter 的真实 <code>inject</code>，与上一件同轮。</li>
+  <li><strong>§38.5 入站 MCP 采集</strong>：工作台主动去读 agent 那边的会话。形状、触发条件与"只能 stdio 阻塞"的硬约束记在 <a href="docs/adr/ADR-总览.html#adr-028">ADR-028</a>。</li>
+  <li><strong>不算 V1 欠账的两条</strong>：§40 中文分词是记录在案的限制（<code>unicode61</code> 不切 CJK，测试
+<code>full_text_matches_a_whole_token_not_a_piece_of_a_chinese_run</code> 钉着，V1 只要求 FTS5）；
+语义/向量检索、云同步、插件 adapter、智能偏航、实体图谱分别归 <a href="docs/evolution/">AEP-001 … AEP-005</a>；
+§5 技术树里的 <code>crates/agent-runtime</code> 与 <code>packages/*</code> 没有任何 V1 条款要求它们。</li>
+</ul>
+
+<h2 id="run">九、怎么跑</h2>
+<pre>export PATH="$HOME/.cargo/bin:$PATH"
+
+# 桌面壳（Tauri 2；前端是 apps/desktop/ui 里的静态文件，frontendDist 直接指它，所以没有 dev server）
+cargo run -p wp-desktop --bin wp-desktop
+#   第一屏 = ① 变动：上一次快照到现在移动了什么，逐条决定哪些生效（唯一的写，§7.4）
+#   顶栏顺序：① 变动 → ② 项目地图 → 总览 → 决策 → 演进 / AEP → 时间线 → 偏航 · Inbox → 检索 → 上下文预览 → 健康与备份
+#   在偏航或检索屏点任意一行的「带它去上下文 →」，上下文屏会自己编译一版聚焦那条记录的包
+
+# CLI（包名 vibe-cli、二进制 wp；数据库默认 $WP_DB，其次 ./.vibe/workbench.db）
+cargo run -p vibe-cli --bin wp -- diff --snapshot &lt;id&gt;          # §33：参数是基线，不是项目
+cargo run -p vibe-cli --bin wp -- context plan --select issue:I-1  # §42.1 / §14 第 7 项的 CLI 那半
+cargo run -p vibe-cli --bin wp -- map                            # 物化 PROJECT_MAP（写穿缓存的那次读）
+
+# §38.5 MCP 读面（六个只读工具，含 context_pack）
+cargo build -p vibe-mcp-server
+./target/debug/wp-mcp --print-config
+
+cargo test --workspace            # 265 passed / 0 failed / 1 ignored</pre>
+
+<footer>
+  报告由本轮开发过程整理生成 · 2026-10-06 ·
+  详细流水见 <a href="docs/RECORDS.md">docs/RECORDS.md</a>（2026-10-06 两节），
+  当前指针见 <a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a> §20 / §26，
+  全部决定见 <a href="docs/adr/ADR-总览.html">docs/adr/ADR-总览.html</a>（22 条）。
+  上一轮：<a href="V1第二轮开发报告.html">V1 第二轮开发报告</a>。
+  本文件位于仓库根目录，所有链接为相对路径，本地浏览器与仓库内均可直接打开。
+</footer>
+
+</main>
+</body>
+</html>

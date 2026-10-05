@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use vibe_core::error::CoreError;
-use vibe_core::event_store::{EventDraft, EventStore};
+use vibe_core::event_store::EventStore;
 use vibe_core::ports::{EntityStore, Repositories};
 use vibe_core::project_service::ProjectService;
 use vibe_core::Result;
@@ -277,9 +277,11 @@ impl Inbox {
         Ok(())
     }
 
-    /// The user's verdict on a proposal is recorded here and nowhere else: applying the
-    /// proposal's `delta` would rewrite a baseline, which 禁止 5 reserves for the user
-    /// acting on the baseline itself.
+    /// §7.4's confirm-to-lock, routed through the one service that owns it. Accepting
+    /// here and accepting from `wp proposal accept` cannot be allowed to mean two things:
+    /// the verdict is recorded *and* the proposal's machine-applicable `delta` is applied,
+    /// because a human said so — 禁止 5 bars the model from rewriting a baseline, not the
+    /// user's own acceptance from taking effect.
     fn resolve_proposal(&self, item: &InboxRef, action: InboxAction, reason: &str) -> Result<()> {
         let status = match action {
             InboxAction::Accept => ChangeProposalStatus::Accepted,
@@ -292,7 +294,7 @@ impl Inbox {
                 ))
             }
         };
-        let mut proposal = self
+        let proposal = self
             .repos
             .entities
             .entity::<ChangeProposal>(EntityKind::ChangeProposal, &item.id)?
@@ -302,29 +304,14 @@ impl Inbox {
         if proposal.status == status {
             return Ok(());
         }
-        proposal.status = status;
-        self.repos.entities.put_entity(
-            EntityKind::ChangeProposal,
-            &proposal,
-            Some(proposal_status_slug(status)),
-        )?;
-        self.events.append(
-            EventDraft::new(
-                proposal.project_id.clone(),
-                match status {
-                    ChangeProposalStatus::Accepted => event_catalog::CHANGE_PROPOSAL_ACCEPTED,
-                    _ => event_catalog::CHANGE_PROPOSAL_REJECTED,
-                },
-            )
-            .actor(ActorType::User)
-            .subject("change_proposal", proposal.id.clone())
-            .payload(serde_json::json!({
-                "proposalId": proposal.id,
-                "proposedChange": proposal.proposed_change,
-                "status": proposal_status_slug(status),
-                "reason": reason.trim(),
-            })),
-        )?;
+        match status {
+            ChangeProposalStatus::Accepted => {
+                self.projects.accept_change_proposal(&item.project_id, &item.id, reason)?;
+            }
+            _ => {
+                self.projects.reject_change_proposal(&item.project_id, &item.id, reason)?;
+            }
+        }
         Ok(())
     }
 
@@ -447,17 +434,6 @@ impl Inbox {
         };
         self.projects
             .open_change_proposal(project_id, proposal, ActorType::User)
-    }
-}
-
-/// Matches `ProjectService::status_str`, so a proposal written from either side reads
-/// the same in the `entities.status` column.
-fn proposal_status_slug(status: ChangeProposalStatus) -> &'static str {
-    match status {
-        ChangeProposalStatus::Open => "open",
-        ChangeProposalStatus::Accepted => "accepted",
-        ChangeProposalStatus::Rejected => "rejected",
-        ChangeProposalStatus::Superseded => "superseded",
     }
 }
 

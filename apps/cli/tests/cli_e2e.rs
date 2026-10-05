@@ -1177,3 +1177,107 @@ fn a_near_duplicate_hint_names_the_pair_and_removes_nothing() {
         "an unknown conversation is a miss, not an empty scan"
     );
 }
+
+/// §33's diff is a comparison between two points, so `wp diff --snapshot` has to read its
+/// argument as the baseline and never as the project. Getting that wrong would either fail
+/// with "no such project" or, worse, silently diff the wrong workbench. The two-flag shape is
+/// the part a library test cannot reach: which argument the CLI hands to `diff` as `project_id`
+/// and which as `since_snapshot_id`.
+#[test]
+fn a_snapshot_argument_is_the_baseline_and_never_the_project() {
+    let work = Workbench::ready();
+
+    let first = work.json(&["snapshot", "take", "--label", "first"]);
+    let first_id = first["id"].as_str().expect("a snapshot id").to_string();
+
+    work.ok(&[
+        "event",
+        "--type",
+        "TASK_CREATED",
+        "--subject",
+        "task:t-reconnect",
+        "--payload",
+        r#"{"taskId":"t-reconnect","title":"接上浏览器采集"}"#,
+    ]);
+
+    let against_first = work.json(&["diff", "--snapshot", &first_id]);
+    assert_eq!(
+        against_first["sinceSnapshotId"],
+        serde_json::json!(first_id),
+        "the value asked for is the value used"
+    );
+    assert_eq!(
+        against_first["sinceLabel"],
+        serde_json::json!("first"),
+        "the baseline is named, so the reader knows which point they are looking from"
+    );
+    let added = against_first["tasks"]["added"]
+        .as_array()
+        .expect("a tasks section");
+    assert_eq!(
+        added
+            .iter()
+            .filter(|entry| entry["id"] == serde_json::json!("t-reconnect"))
+            .count(),
+        1,
+        "the event appended after the baseline is the change: {added:?}"
+    );
+
+    // A second snapshot moves only the default baseline; the named one stays where it was.
+    let second = work.json(&["snapshot", "take", "--label", "second"]);
+    let second_id = second["id"].as_str().expect("a snapshot id").to_string();
+    assert_eq!(
+        work.json(&["diff"])["sinceSnapshotId"],
+        serde_json::json!(second_id),
+        "with no flag the newest snapshot is the baseline"
+    );
+    assert_eq!(
+        work.json(&["diff", "--snapshot", &first_id])["sinceSnapshotId"],
+        serde_json::json!(first_id),
+        "naming a baseline is not the same as asking for the latest one"
+    );
+
+    // An id that is not a snapshot is refused rather than answered from the whole log.
+    let unknown = work.run(&["diff", "--snapshot", "no-such-snapshot"]);
+    assert!(
+        !unknown.status.success(),
+        "a missing baseline is a miss, not a diff against nothing: {}",
+        String::from_utf8_lossy(&unknown.stderr)
+    );
+}
+
+/// §42.1 puts the record the user picked at the top of the ladder, and §14's item 7 says that pick
+/// is a click on an Issue. `--select` is the CLI's half of that click, so it has to resolve against
+/// the current fold even when nothing else in this workbench has read the state yet — and a
+/// reference without its kind has to be refused rather than quietly compiling a general pack.
+#[test]
+fn a_selected_record_travels_at_the_top_of_the_ladder() {
+    let work = Workbench::ready();
+    work.ok(&[
+        "event",
+        "--type",
+        "ISSUE_FOUND",
+        "--subject",
+        "issue:I-1",
+        "--payload",
+        r#"{"issueId":"I-1","title":"点击 Issue 之后要有聚焦的 Context Pack"}"#,
+    ]);
+
+    let plan = work.json(&["context", "plan", "--select", "issue:I-1"]);
+    let pinned = plan
+        .as_array()
+        .expect("a plan is a list")
+        .iter()
+        .find(|row| row["section"] == serde_json::json!("Selected Context"))
+        .unwrap_or_else(|| panic!("the selection never reached the plan: {plan}"));
+    assert_eq!(pinned["sourceRef"], serde_json::json!("issue:I-1"), "{pinned}");
+    assert_eq!(pinned["priority"], serde_json::json!(1), "the clicked record is first");
+    assert_eq!(pinned["kept"], serde_json::json!(true), "{pinned}");
+
+    let malformed = work.run(&["context", "plan", "--select", "I-1"]);
+    assert!(
+        !malformed.status.success(),
+        "a reference needs its kind: {}",
+        String::from_utf8_lossy(&malformed.stderr)
+    );
+}

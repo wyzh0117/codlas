@@ -311,9 +311,20 @@ impl ProjectService {
             EventDraft::new(project_id.to_string(), event_catalog::CHANGE_PROPOSAL_CREATED)
                 .actor(actor)
                 .subject("change_proposal", proposal.id.clone())
+                // The event is the record's origin, so it has to carry what the record holds:
+                // a fold that met a thinner payload would rebuild the proposal without `delta`
+                // and §7.4's acceptance would then have nothing machine-applicable to apply.
                 .payload(serde_json::json!({
+                    "proposalId": proposal.id,
                     "proposedChange": proposal.proposed_change,
+                    "reason": proposal.reason,
+                    "affectedScope": proposal.affected_scope,
+                    "affectedArchitecture": proposal.affected_architecture,
+                    "benefit": proposal.benefit,
+                    "cost": proposal.cost,
+                    "risk": proposal.risk,
                     "charterConflict": proposal.charter_conflict,
+                    "delta": proposal.delta,
                 })),
         )?;
         if let Some(charter) = self.charter(project_id)? {
@@ -358,6 +369,7 @@ impl ProjectService {
         &self,
         project_id: &str,
         proposal_id: &str,
+        reason: &str,
     ) -> Result<ChangeProposal> {
         let mut proposal = self
             .repos
@@ -376,7 +388,12 @@ impl ProjectService {
             EventDraft::new(project_id.to_string(), event_catalog::CHANGE_PROPOSAL_ACCEPTED)
                 .user()
                 .subject("change_proposal", proposal.id.clone())
-                .payload(serde_json::json!({ "proposedChange": proposal.proposed_change })),
+                .payload(serde_json::json!({
+                    "proposalId": proposal.id.clone(),
+                    "proposedChange": proposal.proposed_change,
+                    "status": "accepted",
+                    "reason": reason.trim(),
+                })),
         )?;
 
         if let Some(delta) = proposal.delta.clone() {
@@ -389,6 +406,7 @@ impl ProjectService {
         &self,
         project_id: &str,
         proposal_id: &str,
+        reason: &str,
     ) -> Result<ChangeProposal> {
         let mut proposal = self
             .repos
@@ -407,7 +425,12 @@ impl ProjectService {
             EventDraft::new(project_id.to_string(), event_catalog::CHANGE_PROPOSAL_REJECTED)
                 .user()
                 .subject("change_proposal", proposal.id.clone())
-                .payload(serde_json::json!({ "proposedChange": proposal.proposed_change })),
+                .payload(serde_json::json!({
+                    "proposalId": proposal.id.clone(),
+                    "proposedChange": proposal.proposed_change,
+                    "status": "rejected",
+                    "reason": reason.trim(),
+                })),
         )?;
         Ok(proposal)
     }

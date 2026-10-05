@@ -240,8 +240,9 @@ pub fn dispatch(
         ViewCommand::Snapshot(inner) => snapshot(app, &id, inner),
         ViewCommand::Diff { snapshot } => {
             let service = SnapshotService::new(app.repos.clone());
+            // `id` is the project; a `--snapshot` value is the baseline, not the subject.
             let diff = match snapshot {
-                Some(id) => service.diff(&id, None),
+                Some(since) => service.diff(&id, Some(&since)),
                 None => service.since_last_snapshot(&id),
             }?;
             if app.json {

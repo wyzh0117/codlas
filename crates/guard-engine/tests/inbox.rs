@@ -374,3 +374,119 @@ fn the_inbox_surfaces_conflicts_before_check_has_run() {
     assert_eq!(items[0].kind, InboxKind::Conflict);
     assert_eq!(items[0].ref_id.as_deref(), Some(conflicts[0].id.as_str()));
 }
+
+/// §7.4's whole point: the user's verdict is what makes a change take effect. Before this,
+/// `ProjectService::accept_change_proposal` — the only code that applies a proposal's
+/// machine-applicable delta — had no caller in any surface, so accepting from the Inbox
+/// flipped a status and left the boundary where it was.
+#[test]
+fn accepting_a_proposal_from_the_inbox_applies_the_delta_it_carries() {
+    let f = fixture();
+    f.projects
+        .update_scope(
+            &f.project_id,
+            vec![(ScopeSection::Forbidden, "云端同步".into())],
+            vec![],
+            ActorType::User,
+        )
+        .unwrap();
+
+    let proposal = f
+        .projects
+        .open_change_proposal(
+            &f.project_id,
+            ChangeProposal {
+                id: String::new(),
+                project_id: f.project_id.clone(),
+                proposed_change: "把「云端同步」从禁区挪到暂缓区".into(),
+                reason: "离线也要能接续工作".into(),
+                delta: Some(json!({
+                    "appliesTo": "scope",
+                    "remove": [{ "section": "forbidden", "item": "云端同步" }],
+                    "add": [{ "section": "deferred", "item": "云端同步" }],
+                })),
+                ..Default::default()
+            },
+            ActorType::Agent,
+        )
+        .unwrap();
+
+    f.inbox
+        .resolve(
+            &InboxRef::new(&f.project_id, &proposal.id, InboxKind::ChangeProposal),
+            InboxAction::Accept,
+            "同意，先记为暂缓",
+        )
+        .unwrap();
+
+    let scope = f.projects.scope(&f.project_id).unwrap().expect("scope");
+    assert_eq!(scope.version, 2, "the accepted delta moved the boundary to a new version");
+    assert!(scope.deferred.iter().any(|item| item == "云端同步"), "{scope:?}");
+    assert!(!scope.forbidden.iter().any(|item| item == "云端同步"), "{scope:?}");
+    assert_eq!(
+        f.repos.projects.list_scope_versions(&f.project_id).unwrap().len(),
+        2,
+        "the old version stays (§9): a move inserts, never overwrites"
+    );
+
+    assert_eq!(f.proposal(&proposal.id).status, ChangeProposalStatus::Accepted);
+    let verdicts = f.events_of(event_catalog::CHANGE_PROPOSAL_ACCEPTED);
+    assert_eq!(verdicts.len(), 1, "one verdict, one event");
+    assert_eq!(verdicts[0].payload["reason"], json!("同意，先记为暂缓"));
+
+    // Saying it again is not a second change: the status already matches, so nothing moves.
+    f.inbox
+        .resolve(
+            &InboxRef::new(&f.project_id, &proposal.id, InboxKind::ChangeProposal),
+            InboxAction::Accept,
+            "同意，先记为暂缓",
+        )
+        .unwrap();
+    assert_eq!(f.projects.scope(&f.project_id).unwrap().unwrap().version, 2);
+    assert_eq!(f.events_of(event_catalog::CHANGE_PROPOSAL_ACCEPTED).len(), 1);
+}
+
+/// Rejecting is the other half of 确认即锁定: the record closes, the boundary does not move.
+#[test]
+fn rejecting_a_proposal_from_the_inbox_leaves_the_boundary_alone() {
+    let f = fixture();
+    f.projects
+        .update_scope(
+            &f.project_id,
+            vec![(ScopeSection::Forbidden, "多人协作".into())],
+            vec![],
+            ActorType::User,
+        )
+        .unwrap();
+    let proposal = f
+        .projects
+        .open_change_proposal(
+            &f.project_id,
+            ChangeProposal {
+                id: String::new(),
+                project_id: f.project_id.clone(),
+                proposed_change: "把「多人协作」挪进暂缓区".into(),
+                reason: "也许以后要".into(),
+                delta: Some(json!({
+                    "appliesTo": "scope",
+                    "add": [{ "section": "deferred", "item": "多人协作" }],
+                })),
+                ..Default::default()
+            },
+            ActorType::Agent,
+        )
+        .unwrap();
+
+    f.inbox
+        .resolve(
+            &InboxRef::new(&f.project_id, &proposal.id, InboxKind::ChangeProposal),
+            InboxAction::Reject,
+            "V1 不做团队功能",
+        )
+        .unwrap();
+
+    assert_eq!(f.proposal(&proposal.id).status, ChangeProposalStatus::Rejected);
+    let scope = f.projects.scope(&f.project_id).unwrap().unwrap();
+    assert_eq!(scope.version, 1, "a rejected proposal never touches a baseline");
+    assert!(scope.deferred.is_empty(), "{scope:?}");
+}

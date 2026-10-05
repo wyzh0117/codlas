@@ -6,3 +6,6 @@ dist/
 *.db-shm
 .data/
 .DS_Store
+
+# Tauri regenerates these schemas on every build.
+apps/desktop/gen/

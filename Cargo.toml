@@ -12,6 +12,7 @@ members = [
   "crates/search",
   "crates/mcp-server",
   "apps/cli",
+  "apps/desktop",
 ]
 # The golden fixtures include a deliberately broken, non-member Cargo.toml (the
 # INV-001 violation the drift rules must catch); keep cargo from reading it.
@@ -34,6 +35,7 @@ vibe-ingestion = { path = "crates/ingestion" }
 vibe-security = { path = "crates/security" }
 vibe-search = { path = "crates/search" }
 vibe-mcp-server = { path = "crates/mcp-server" }
+vibe-cli = { path = "apps/cli" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

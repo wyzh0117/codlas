@@ -7,8 +7,9 @@ use serde_json::{json, Value};
 use vibe_core::ports::{EntityStore, Repositories};
 use vibe_core::project_service::{CharterDraft, ProjectService};
 use vibe_domain::{
-    event_catalog, event_dedup_key, ActorType, AepStatus, DecisionStatus, DriftStatus, EntityKind,
-    EventStatus, Project, ProjectEvent, ProjectStatus, ScopeSection, Task, TaskStatus,
+    event_catalog, event_dedup_key, ActorType, AepStatus, ChangeProposal, ChangeProposalStatus,
+    DecisionStatus, DriftStatus, EntityKind, EventStatus, Project, ProjectEvent, ProjectStatus,
+    ScopeSection, Task, TaskStatus,
 };
 use vibe_state_engine::Reducer;
 use vibe_storage::SqliteStore;
@@ -714,4 +715,51 @@ fn charter_scope_and_baseline_are_read_only_and_outside_the_hash() {
         vibe_state_engine::state_hash(&state),
         state.state_hash.as_deref().expect("hash")
     );
+}
+
+/// 确认即锁定 (§7.4) works because a proposal carries a machine-applicable `delta` — so the
+/// delta has to survive the call that rewrites the row from the log. A creating event that
+/// named only the change text made the projection rebuild the record without its reason and
+/// without its delta, silently turning the user's acceptance into a status flip.
+#[test]
+fn a_proposal_survives_materialization_with_the_delta_it_was_opened_with() {
+    let f = fixture();
+    let projects = ProjectService::new(f.repos.clone());
+    let delta = json!({
+        "appliesTo": "scope",
+        "add": [{ "section": "deferred", "item": "云端同步" }],
+    });
+    let proposal = projects
+        .open_change_proposal(
+            PROJECT,
+            ChangeProposal {
+                id: String::new(),
+                project_id: PROJECT.to_string(),
+                proposed_change: "把「云端同步」从禁区挪到暂缓区".into(),
+                reason: "离线也要能接续工作".into(),
+                delta: Some(delta.clone()),
+                ..Default::default()
+            },
+            ActorType::Agent,
+        )
+        .expect("open proposal");
+
+    f.reducer.project_state(PROJECT).expect("materialize");
+
+    let stored = f
+        .repos
+        .entities
+        .entity::<ChangeProposal>(EntityKind::ChangeProposal, &proposal.id)
+        .expect("read the row")
+        .expect("the row is still a record");
+    assert_eq!(
+        stored.reason, "离线也要能接续工作",
+        "the log is the only input, so the log has to carry the reason"
+    );
+    assert_eq!(
+        stored.delta,
+        Some(delta),
+        "accepting a proposal whose delta was lost would move nothing"
+    );
+    assert_eq!(stored.status, ChangeProposalStatus::Open, "a fold does not decide");
 }

@@ -78,7 +78,9 @@ pub enum ContextCommand {
     },
 }
 
-fn parse_ref(raw: &str, what: &str) -> Result<(String, String)> {
+/// `kind:id` in, the pair out. Public because the desktop shell focuses a pack with the same
+/// reference grammar a user types on the command line — one rule, not a second spelling of it.
+pub fn parse_ref(raw: &str, what: &str) -> Result<(String, String)> {
     let (kind, id) = raw
         .split_once(':')
         .ok_or_else(|| CoreError::Validation(format!("{what} looks like kind:id, got '{raw}'")))?;
@@ -142,6 +144,11 @@ fn request(project_id: &str, ask: &Ask, to: Option<&str>) -> Result<ContextReque
 pub fn dispatch(app: &App, project: Option<&str>, command: ContextCommand) -> Result<()> {
     let id = app.project(project)?;
     let compiler = ContextCompiler::new(app.repos.clone());
+    // §42.1 resolves a selection through the entity store, and those rows are the fold's own
+    // cache: a record accepted since the last `wp map` or snapshot would otherwise read back as
+    // "not found in this project". Materializing first is the same write-through the map compile
+    // already does, not a second state (ADR-030).
+    vibe_state_engine::Reducer::new(app.repos.clone()).project_state(&id)?;
     match command {
         ContextCommand::Build { ask, to, out } => {
             let req = request(&id, &ask, to.as_deref())?;

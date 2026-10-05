@@ -214,6 +214,13 @@ pub fn call(
         }
         "context_pack" => {
             let question = required_str(args, "question")?;
+            // A selection resolves through the entity store, and those rows are the fold's own
+            // cache, so the pack is compiled over a fresh materialization — the same write-through
+            // `project_map` above performs (ADR-030). Without it a record accepted after the last
+            // map compile reaches the agent as "not found in this project".
+            Reducer::new(repos.clone())
+                .project_state(project_id)
+                .map_err(executed)?;
             let mut request = ContextRequest::new(project_id, question);
             for raw in string_array(args, "select")? {
                 let (kind, id) = raw.split_once(':').ok_or_else(|| {

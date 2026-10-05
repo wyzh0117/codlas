@@ -7,6 +7,80 @@
 
 ---
 
+## 2026-10-06 · V1-E 桌面壳落地，八屏齐了；§14 第 7 项补上那只手（ADR-029 / ADR-030 各修订一次）
+
+同一天里的第三轮。上一轮只改了账，这一轮把账上第一件——桌面壳——做完，并且在做的过程中又找到一个真缺陷。
+
+### 一、壳本身：`apps/desktop`（Tauri 2）
+
+十二个命令，十一个是只读视图，唯一的写是 `apply_pending`，它逐条走 §7.4 早就存在的
+`accept_change_proposal` / Inbox 判定。db 路径与当前项目都由 `vibe_cli::app::App`（CLI 自己的 runtime）给出，
+窗口与终端不可能各有一套项目状态（禁止 4 / 禁止 7）。lib/bin 切开：视图构造器在 `src/views.rs`（lib），
+`#[tauri::command]` 壳在 `src/commands.rs`（bin），`src/main.rs` 只剩注册。
+于是 `apps/desktop/tests/views.rs`（12 条）不启动 webview 就能驱动整条读路径。
+
+第一屏就是用户拍定的流程：**变动（diff + 等你决定的条目）→ 决定哪些生效 → 项目地图**，
+两侧再摊开总览、决策、演进（AEP）、时间线、检索、上下文预览、健康与备份。
+§21 给 V1-E 列的八个屏幕（Overview / Timeline / Project Map / Decisions / Evolution / Drift·Inbox / Search
++ 本轮定的第一屏 diff）全部有对应命令与视图构造器，所以 §26 的 V1-E 第一次名实相符地打上 ✅。
+
+写这一轮的时候对着 §21 逐屏点过一遍：上一轮"桌面壳做完"的说法其实是 7/8——总览、决策、演进三块没有屏幕。
+这一轮补齐，且三块都是**薄展示**：`overview_view` 只是把已接受事件折叠出来的记录按类型数一遍，
+并写明"这些数字不是第二套状态"；`decisions_view` 明确"这一屏不提供编辑"；
+`evolution_view` 把 AEP 显示成还没被触发的提案（`dormant`），而不是在建工程（禁止 8）。
+
+### 二、§14 第 7 项：缺的那只"手"，以及缓存第二次咬人
+
+上一轮的清单里写着"缺手势不缺逻辑"。这一轮补手势：偏航屏与检索屏每行一个「带它去上下文 →」，
+上下文屏多一个 `kind:id` 聚焦框，`ContextView.focus` 让包自己说聚焦在哪一条。三条约束是设计本身：
+
+- **引用就是意图**。点了之后不需要再写一句问话，壳按 CLI 完全相同的方式把它写成 `context for issue:I-1`；
+  两者复用同一个 `vibe_cli::context::parse_ref`（把 `parse_ref` 从 CLI 私有改成 pub，而不是抄第二套引用语法）。
+- **没问话也没点选＝拒绝**，不是一份空包（§62 不允许工作台替你猜）。
+- 编译包之前先做一次 `Reducer::project_state` 写穿。**这是 ADR-030 的第二种后果**：§42.1 的"用户显式选择"
+  是经 `repos.entities` 解析的，而那些行是折叠的缓存；刚 `wp event` 追加一条 Issue、还没跑过 `wp map` 时，
+  `wp context plan --select issue:I-1` 会答"not found in this project"。CLI 的 `context dispatch`、
+  `wp-mcp` 的 `context_pack`、桌面壳的 `context_view` 各补一行——map 编译与快照本来就这么写，不是第二套状态。
+
+顺带把 `--select` 在 CLI 层的覆盖补上（`a_selected_record_travels_at_the_top_of_the_ladder`：
+priority 1 / kept / 少了 kind 就拒绝）。此前这个 flag 只有引擎层测试，CLI 的 flag→request 那条线没人守。
+
+### 三、测试与构建
+
+`cargo test --workspace` = **265 passed / 0 failed / 1 ignored**（Keychain 仍需 opt-in），`cargo build` 零 warning，
+`cargo build -p wp-desktop --bins` 通过。三层：库（golden + 各 crate 套件）、真二进制（`cli_e2e` 19 条）、
+桌面壳视图（`views.rs` 12 条）。webview 的像素仍是手工核对——ADR-029 的后果里明说了"12 条测试通过"
+不等于"渲染正确"。
+
+### 四、V1 边界内还欠着的（这一轮清掉两件，还剩三件）
+
+1. **V1-D 浏览器扩展 + Native Messaging**（§34 / §35 / §38.2 / §38.3 / §58 E2E）：`open` 与 `inject`
+   至今只有 trait 里的默认 `Ok(None)`。这一轮才是它们第一次真实存在的时候，§35 的五条校验
+   （origin / command / payload / size / project scope）是这一轮的验收点，不是可选项。
+2. **§38.5 入站方向的 MCP 采集**：工作台主动去读 agent 那边的会话。形状与触发条件记在 ADR-028。
+3. **§14 第 9 项"发送进另一个 Agent"**：payload 与复制兜底都有，缺的仍是真实传输，与第 1 项同轮。
+
+不算欠账的两条：§40 的中文分词是**记录在案的限制**（`unicode61` 不切 CJK，测试
+`full_text_matches_a_whole_token_not_a_piece_of_a_chinese_run` 钉着；V1 只要求 FTS5），
+超出边界的语义/向量检索、云同步、插件 adapter、智能偏航、实体图谱分别归 AEP-002…005；
+§5 技术树里的 `crates/agent-runtime` 与 `packages/*` 没有一条 V1 条款要求它们。
+
+### 五、§62 七门现状
+
+Continuity ✅ · Fidelity ✅（ADR-030 之后创建事件带整条记录）· Traceability ✅ · Drift ✅ · Recovery ✅ ·
+Degradation ✅（`fallback` 与"没输入就拒绝"都在测试里）· **Context ◐**——能编译、能在桌面上点一行聚焦、
+能被 agent 通过 `wp-mcp` 读走，缺的仍是把包"送进去"的那条写面（V1-D）。
+
+### 六、回写
+
+`PROJECT_MASTER` §20 四块（V1-E 三条新要点 + 测试计数 + NEXT TARGET 去掉 §14 第 7 项那件债）、
+§26 的 V1-E 从 ⏳ 改为 ✅（V1-D 仍是 ◐，两半都欠着）；
+`docs/adr/ADR-总览.html` 就地修订 ADR-029（那只手的形状与"点一行＝意图"）与 ADR-030（缓存第二次咬人，
+以及"哪些读依赖显式物化"），索引行、meta、README 三处计数同步（e2e 19 / views 12）；
+任务报告：`V1第三轮开发报告.html`。
+
+---
+
 ## 2026-10-06 · V1 缺口清点：§38.5 的另一半改记为"还欠着"（ADR-028）
 
 这一节不动产品逻辑，只做两件事：把上一轮的判断错误改正过来，以及把"V1 还剩什么"对着文档核一遍。

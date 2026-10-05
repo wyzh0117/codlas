@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codlas 工作台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="side" id="nav" aria-label="工作台">
+        <div class="brand">Codlas<small>个人 Vibe Coding 项目工作台</small></div>
+        <button data-screen="diff" aria-current="true">① 变动</button>
+        <button data-screen="map">② 项目地图</button>
+        <button data-screen="overview">总览</button>
+        <button data-screen="decisions">决策</button>
+        <button data-screen="evolution">演进 / AEP</button>
+        <button data-screen="timeline">时间线</button>
+        <button data-screen="drift">偏航 / Inbox</button>
+        <button data-screen="search">检索</button>
+        <button data-screen="context">上下文预览</button>
+        <button data-screen="health">健康与备份</button>
+        <div class="spacer"></div>
+        <div class="ctx" id="ctx">未选择项目</div>
+      </nav>
+      <main class="work" id="work">
+        <p class="boot">正在装载工作台…</p>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

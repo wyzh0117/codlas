@@ -64,11 +64,11 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:v
 
 <h1>构览 Codlas · ADR 总览</h1>
 <div class="sub">Architecture Decision Records — 每一行"为什么这样决定"的正式记录 ·
-本页共 <b>20</b> 条 · 最后更新 2026-10-06</div>
+本页共 <b>22</b> 条 · 最后更新 2026-10-06</div>
 
 <div class="badges">
-  <span class="badge">ADR <b>20 条</b></span>
-  <span class="badge">覆盖 <b>ADR-001 … ADR-028</b>（缺号见下方说明）</span>
+  <span class="badge">ADR <b>22 条</b></span>
+  <span class="badge">覆盖 <b>ADR-001 … ADR-030</b>（缺号见下方说明）</span>
   <span class="badge">介质 <b>单页 HTML，原 19 份 .md 已删除</b></span>
 </div>
 
@@ -84,8 +84,8 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:v
     实现的另一条 ADR。</li>
 </ul>
 <p>编号是<strong>不可回收</strong>的：ADR-003、005、006、007、008、009、010、012 没有独立条目，
-因为 PROJECT_MASTER §7 / §19 已经把那些决定钉得够死，另开一份文件只是复述总控；ADR-028 会一直
-往下排，缺号不是遗漏。反过来，<em>前瞻性</em>的架构意图不属于 ADR，属于
+因为 PROJECT_MASTER §7 / §19 已经把那些决定钉得够死，另开一份文件只是复述总控；往后从 ADR-031
+继续往下排，缺号不是遗漏。反过来，<em>前瞻性</em>的架构意图不属于 ADR，属于
 <code>docs/evolution/</code> 下的 <strong>AEP</strong>（Architecture Evolution Proposal）——
 AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
 
@@ -100,19 +100,21 @@ AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
 <tr><td><a href="#adr-013">ADR-013</a></td><td>One `entities` table with a JSON payload, not one table per object</td><td><span class="status">accepted (implementation deviation from V1_DEVELOPMENT §49, allowed by §50; key corrected by migration v3)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §49 (full table list), §50 (minimum database version)</td></tr>
 <tr><td><a href="#adr-014">ADR-014</a></td><td>Event identity: store-assigned `seq`, actor and status inside the dedup key</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §15, §18, §27, §51, §52; ADR-002</td></tr>
 <tr><td><a href="#adr-015">ADR-015</a></td><td>Drift rules are lexical in V1, and they only ever propose</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §26, §29, §8.6 (PROJECT_MASTER); AEP-004</td></tr>
-<tr><td><a href="#adr-016">ADR-016</a></td><td>What V1&#x27;s first implementation round deliberately does not include</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06 (MCP moved to built; §38.5&#x27;s inbound half found owed)</span></td><td>2026-10-03</td><td>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</td></tr>
+<tr><td><a href="#adr-016">ADR-016</a></td><td>What V1&#x27;s first implementation round deliberately does not include</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06 ×2（MCP 转已建、§38.5 入站欠着；V1-E 桌面壳转已建）</span></td><td>2026-10-03</td><td>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</td></tr>
 <tr><td><a href="#adr-017">ADR-017</a></td><td>The system keychain is explicit opt-in; the default secret store is a 0600 file</td><td><span class="status">accepted (records a deliberate reading of V1_DEVELOPMENT §53)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §53, §54; PROJECT_MASTER §19 禁止 8; ADR-016</td></tr>
 <tr><td><a href="#adr-018">ADR-018</a></td><td>The full-text index stores what a record says, not how it is encoded</td><td><span class="status">accepted (fixes four defects the CLI round surfaced)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §40 (L2), §43; PROJECT_MASTER §19 禁止 4</td></tr>
 <tr><td><a href="#adr-019">ADR-019</a></td><td>`.projectpack` is a stored zip whose manifest says &quot;projection, not a second source of truth&quot;</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §55; PROJECT_MASTER §19 禁止 4; ADR-002, ADR-011</td></tr>
-<tr><td><a href="#adr-020">ADR-020</a></td><td>V1&#x27;s user surface is the CLI; two test layers, one implementation</td><td><span class="status amended">accepted, amended 2026-10-05 (the e2e count grew; §38.5&#x27;s MCP door is now named)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026</td></tr>
+<tr><td><a href="#adr-020">ADR-020</a></td><td>V1&#x27;s user surface is the CLI; two test layers, one implementation</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06（桌面壳是同一实现的第二扇门；e2e 19 条，另有 views 层）</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026, ADR-029</td></tr>
 <tr><td><a href="#adr-021">ADR-021</a></td><td>An adapter&#x27;s health has exactly four outcomes, and the last run replaces the one before</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §51, §58, §62 Degradation; PROJECT_MASTER §7.9, §13.2 Stage H</td></tr>
 <tr><td><a href="#adr-022">ADR-022</a></td><td>Watch signals are events with a verb in the payload, and they move no state</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §16, §39, §19; PROJECT_MASTER §7.2, §7.3, 禁止 9</td></tr>
 <tr><td><a href="#adr-023">ADR-023</a></td><td>A backup is an online copy, made and restored through SQLite&#x27;s own backup API</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §55 Export/Backup, §62 Recovery; PROJECT_MASTER §7.5, §13.2 Stage H; ADR-019</td></tr>
 <tr><td><a href="#adr-024">ADR-024</a></td><td>Level-3 near-duplicates are lexical hints, and a hint carries the thread it came from</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §52, §59, §60; PROJECT_MASTER §7.2, §19 禁止 9; AEP-002</td></tr>
 <tr><td><a href="#adr-025">ADR-025</a></td><td>The adapter contract answers all seven verbs, and answers them only what it advertised</td><td><span class="status amended">accepted, amended 2026-10-06</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §37, §58, §62 Degradation, §7.8; PROJECT_MASTER §19 禁止 8; ADR-008 / AEP-003</td></tr>
 <tr><td><a href="#adr-026">ADR-026</a></td><td>The MCP surface is a second door onto the same ports, and it only opens inward</td><td><span class="status amended">accepted, amended 2026-10-06 (the other §38.5 direction found unmet → ADR-028)</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §38.5, §29, §53, §54, §59, §60, §62; PROJECT_MASTER §7.5, 禁止 4, 禁止 7, 禁止 8</td></tr>
-<tr><td><a href="#adr-027">ADR-027</a></td><td>A performance budget is a work count first and a stopwatch number second</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §59, §60; PROJECT_MASTER §7.2, §7.9, §13.2 Stage H, 禁止 7, 禁止 8</td></tr>
+<tr><td><a href="#adr-027">ADR-027</a></td><td>A performance budget is a work count first and a stopwatch number second</td><td><span class="status amended">accepted, amended 2026-10-06 (manifest walk 纳入 apps/desktop)</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §59, §60; PROJECT_MASTER §7.2, §7.9, §13.2 Stage H, 禁止 7, 禁止 8; ADR-029</td></tr>
 <tr><td><a href="#adr-028">ADR-028</a></td><td>§38.5 is one door, not two: the read side is built, inbound MCP capture is owed</td><td><span class="status">accepted</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §38.5, §37, §58, §60, 禁止 9; PROJECT_MASTER §14 #10, §26 V1-D; ADR-024, ADR-026, ADR-027</td></tr>
+<tr><td><a href="#adr-029">ADR-029</a></td><td>The desktop shell is a second surface on the CLI&#x27;s own runtime, and its only write is §7.4&#x27;s confirm</td><td><span class="status amended">accepted, amended 2026-10-06（§14 第 7 项的那只手落在壳里）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §38, §61 V1-E, §7.4, §7.8, §62; PROJECT_MASTER §13.2 Stage E, §14, 禁止 4, 禁止 7; ADR-006, ADR-016, ADR-020, ADR-025, ADR-027</td></tr>
+<tr><td><a href="#adr-030">ADR-030</a></td><td>A creating event has to carry the whole record, because a fold rebuilds rows from the log alone</td><td><span class="status amended">accepted, amended 2026-10-06（同一份缓存在 §42.1 的选择路径上第二次咬人）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §15–§18, §31, §33, §42.1; PROJECT_MASTER §7.2, §7.4, 禁止 4, 禁止 6; ADR-002, ADR-014, ADR-027, ADR-029</td></tr>
   </tbody>
 </table>
 
@@ -140,6 +142,12 @@ AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
     <tr><td>V1 第二轮 · 补齐未完成与半成品</td><td>2026-10-05</td>
       <td><a href="../../V1第二轮开发报告.html">V1第二轮开发报告.html</a></td>
       <td>ADR-021 … ADR-027（并修订 ADR-016、ADR-020）</td></tr>
+    <tr><td>V1 缺口清点 · §38.5 的另一半改记为"还欠着"</td><td>2026-10-06</td>
+      <td><a href="../RECORDS.md">docs/RECORDS.md § 2026-10-06（缺口清点）</a>（该轮只改账，未出 HTML 报告）</td>
+      <td>ADR-028（并修订 ADR-016、ADR-020、ADR-026）</td></tr>
+    <tr><td>V1 第三轮 · 桌面壳八屏齐了，§14 第 7 项补上那只手</td><td>2026-10-06</td>
+      <td><a href="../../V1第三轮开发报告.html">V1第三轮开发报告.html</a></td>
+      <td>修订 ADR-029（§14 第 7 项的手势）与 ADR-030（缓存在 §42.1 选择路径上第二次咬人）；§26 V1-E ⏳→✅</td></tr>
   </tbody>
 </table>
 <div class="callout">
@@ -404,7 +412,7 @@ floor it will be measured against, not something it has to be rewritten around.<
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-016">ADR-016 — What V1&#x27;s first implementation round deliberately does not include</h2>
-<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (MCP moved from deferred to built) and 2026-10-06 (§38.5's inbound half is owed — <a href="#adr-028">ADR-028</a>)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</span></div></div>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (MCP moved from deferred to built), 2026-10-06 (§38.5&#x27;s inbound half is owed — <a href="#adr-028">ADR-028</a>) and 2026-10-06 (V1-E desktop moved to built — <a href="#adr-029">ADR-029</a>)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</span></div></div>
 <h3>Context</h3>
 <p>The first implementation round had to produce a runnable closed loop (Stage A/B/C/G plus the
 Map and Context engines) rather than a wide but unconnected surface. Several §13.2 items are
@@ -421,10 +429,14 @@ reading the project's bound <code>rootPath</code>, search layers L1/L2/L3 behind
 <code>golden.rs</code> over the libraries, <code>cli_e2e.rs</code> over the real binary.</p>
 <p>Deferred on purpose, each with the stage that owns it:</p>
 <ul>
-<li><strong>Tauri desktop UI (V1-E workbench screens)</strong> — <code>apps/desktop</code> does not exist yet. The CLI
-  renders the same compiled map, the same diff and the same context pack, so the UI round is
-  a presentation layer over proven logic rather than a redesign of it. <code>cargo-tauri</code> 2.11.5
-  and the Rust toolchain are verified working on this machine.</li>
+<li><strong>Tauri desktop UI (V1-E workbench screens)</strong> — <em>no longer deferred.</em> <code>apps/desktop</code>
+was built in the third round: eleven read commands and §7.4&#x27;s one confirm, over the same
+<code>vibe_cli::app::App</code> the CLI uses — all eight screens §21 lists for V1-E, plus the health,
+context-preview and diff-first screens this round added. What shipped and what a window still cannot
+be tested for is <a href="#adr-029">ADR-029</a>&#x27;s decision. The CLI keeps rendering the same compiled
+map, the same diff and the same context pack, so the UI arrived as a presentation layer over proven
+logic — which is what this bullet predicted before it existed, and what
+<a href="#adr-030">ADR-030</a> confirmed by exposing an event-chain defect through that layer.</li>
 <li><strong>Browser extension + Native Messaging (V1-D)</strong> — §34/§35. Needs the adapter contract to
   settle first, which it now has; the MV3 side is the only part that genuinely requires a
   browser session.</li>
@@ -446,13 +458,17 @@ reading the project's bound <code>rootPath</code>, search layers L1/L2/L3 behind
 8–10 (charter → sources → entities → map → drift → pack → prepare → re-entry into the
 timeline); item 2's folder binding is the project's own <code>rootPath</code> read by
 <code>wp import git|files</code>, and item 7's gesture ("点击某个 Issue") is the CLI's
-<code>wp context build --select kind:id</code> rather than a click. What remains open is the surface
-itself: <strong>the V1-E desktop screens and the V1-D browser extension</strong>. The MCP transport closed
-in the second round, and §55's backup side, Stage H's Adapter Health and Performance closed
-with it — see <a href="#adr-021">ADR-021</a> through <a href="#adr-028">ADR-028</a>. PROJECT_MASTER §20 states the current position.</p>
-<p>The two remaining items are still deferred for the reason this record was written: each needs
-a lifecycle (a window, a browser session) that no core logic depends on, and 禁止 8 says a
-presentation layer over proven logic is built after the logic, not beside it.</p>
+<code>wp context build --select kind:id</code> rather than a click. The desktop shell
+(<a href="#adr-029">ADR-029</a>) renders §14&#x27;s screens, but its context tab compiles from a typed
+question only, so item 7&#x27;s gesture still has a window and not yet a click on an Issue. What remains
+open is that gesture, the <strong>V1-D browser extension</strong>, and the inbound half of §38.5
+(<a href="#adr-028">ADR-028</a>). The MCP transport closed in the second round, §55&#x27;s backup side,
+Stage H&#x27;s Adapter Health and Performance closed with it, and the V1-E desktop screens closed in the
+third — see <a href="#adr-021">ADR-021</a> through <a href="#adr-030">ADR-030</a>. PROJECT_MASTER §20
+states the current position.</p>
+<p>What is still deferred is deferred for the reason this record was written: each item needs a
+lifecycle (a browser session, a counterparty that speaks MCP inbound) that no core logic depends on,
+and 禁止 8 says a presentation layer over proven logic is built after the logic, not beside it.</p>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-017">ADR-017 — The system keychain is explicit opt-in; the default secret store is a 0600 file</h2>
@@ -625,16 +641,17 @@ containing:</p>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-020">ADR-020 — V1&#x27;s user surface is the CLI; two test layers, one implementation</h2>
-<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (the e2e count grew; §38.5&#x27;s MCP door is now named)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026</span></div></div>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (the e2e count grew; §38.5&#x27;s MCP door is now named) and 2026-10-06 (a second human surface exists — the desktop shell, on these same ports; see <a href="#adr-029">ADR-029</a>)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026, ADR-029</span></div></div>
 <h3>Context</h3>
 <p>§14's acceptance list is behavioural ("选中一个问题即可交给任意 Agent"), not architectural.
-With the Tauri shell (ADR-006) not built, the CLI is the only surface a <em>human</em> can actually
-touch — which makes it the thing the acceptance test must exercise. Testing only the libraries
+With the Tauri shell (ADR-006) not built, the CLI was the only surface a <em>human</em> could actually
+touch — which made it the thing the acceptance test had to exercise. Testing only the libraries
 would leave the argument layout, file reads and print formats unproven, and those broke in
 practice: flattened verbs (<code>wp audit</code>, not <code>wp view audit</code>) and zsh's non-word-splitting
-produced failures no library test could see. The one other surface V1 now has, <code>wp-mcp</code>
-(<a href="#adr-026">ADR-026</a>), faces an agent rather than a human and is deliberately built on these same ports,
-so it does not soften the rule below.</p>
+produced failures no library test could see. The surfaces V1 has added since do not soften the rule
+below: <code>wp-mcp</code> (<a href="#adr-026">ADR-026</a>) faces an agent rather than a human, and the desktop
+shell (<a href="#adr-029">ADR-029</a>) was deliberately built on the CLI&#x27;s own runtime, so a window is a
+second door onto one implementation, not a second implementation.</p>
 <h3>Decision</h3>
 <ul>
 <li><code>apps/cli</code> stays thin: parse, borrow files, call the same services the workbench will call,
@@ -643,13 +660,19 @@ so it does not soften the rule below.</p>
 <li><code>apps/cli/tests/golden.rs</code> (7 tests) drives the libraries against <code>tests/fixtures/</code> and
   pins compiled artifacts, including that the six drift rules fire on the material they are
   for and that replaying the same log twice yields the same state and map.</li>
-<li><code>apps/cli/tests/cli_e2e.rs</code> (17 tests as of 2026-10-05) spawns the real binary
+<li><code>apps/cli/tests/cli_e2e.rs</code> (18 tests as of 2026-10-06) spawns the real binary
   (<code>env!("CARGO_BIN_EXE_wp")</code>) in a tempdir with <code>--db</code>, clearing <code>WP_DB</code> and
   <code>VIBE_SECURITY_ALLOW_KEYCHAIN</code> so nothing leaks between tests. The suite walks §14's loop:
   charter → transcript import → map save → pack → policy refusal → secret redaction →
   prepare → six exports + <code>.projectpack</code> → routing advice → layered search → bound-directory
   capture idempotence → capture refusal when unbound, and since the second round the same
-  loop through <code>evidence</code>, <code>backup create|verify|restore</code>, <code>adapters</code>, <code>watch</code> and <code>duplicates</code>.</li>
+  loop through <code>evidence</code>, <code>backup create|verify|restore</code>, <code>adapters</code>, <code>watch</code>,
+  <code>duplicates</code> and <code>diff --snapshot</code>.</li>
+<li><strong>A third layer, same rule (2026-10-06):</strong> <code>apps/desktop/tests/views.rs</code> (12 tests) drives
+  the shell&#x27;s view builders directly — no webview, no process. "Two test layers" means two layers
+  <em>per behaviour</em>: library plus real surface. The window&#x27;s surface is reachable as a function call
+  rather than only as a click, which is what keeps §14&#x27;s claims testable there
+  (<a href="#adr-029">ADR-029</a>).</li>
 <li>The e2e helper (<code>Workbench::ready</code>) is the smallest possible project — <code>init</code> with a
   charter, <code>import transcript</code>, <code>map save</code>. A new test starts from those three lines, not a
   bespoke fixture.</li>
@@ -664,9 +687,12 @@ so it does not soften the rule below.</p>
   <a href="#adr-018">ADR-018</a> were found by running it, not by the library suite. The e2e layer exists so the
   next round starts from that instrument.</li>
 <li>The library tests stay the fast inner loop; the e2e suite spawns processes but is
-  deliberately small (17 tests) and runs in the same <code>cargo test --workspace</code>.</li>
-<li>When the Tauri shell (V1-E) lands it must go through the same ports. The CLI is not
-  scheduled for removal — it remains the workbench's headless form (<a href="#adr-016">ADR-016</a>).</li>
+  deliberately small (18 tests) and runs in the same <code>cargo test --workspace</code>.</li>
+<li>The Tauri shell (V1-E) landed on these same ports, through <code>vibe_cli::app::App</code> rather than a
+  second resolution of db and project — <a href="#adr-029">ADR-029</a> is that decision, and
+  <a href="#adr-030">ADR-030</a> is the event-chain defect it exposed. The CLI is not scheduled for
+  removal: it remains the workbench&#x27;s headless form (<a href="#adr-016">ADR-016</a>), and it is still the
+  only surface that can create or bind a project.</li>
 <li>V1 now has two surfaces, not one: <code>wp</code> for the human and <code>wp-mcp</code> for an agent (<a href="#adr-026">ADR-026</a>).
   The distinction this ADR protects is still exactly one — neither gets to hold logic. Both
   are front doors over the same services, and a third door (the desktop UI) inherits that rule
@@ -1029,7 +1055,7 @@ deferred it (<a href="#adr-016">ADR-016</a>) on the grounds that the context com
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-027">ADR-027 — A performance budget is a work count first and a stopwatch number second</h2>
-<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §59, §60; PROJECT_MASTER §7.2, §7.9, §13.2 Stage H, 禁止 7, 禁止 8</span></div></div>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-06 (the manifest walk now covers <code>apps/desktop</code>)</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §59, §60; PROJECT_MASTER §7.2, §7.9, §13.2 Stage H, 禁止 7, 禁止 8; ADR-029</span></div></div>
 <h3>Context</h3>
 <p>§59 asks for performance budgets on the deterministic chain (replay, projection, map compile,
 context compile) and §60 asks for a cost rule: the chain runs on hash, rules, SQLite, FTS, git,
@@ -1073,6 +1099,11 @@ which no timing test can check.</p>
 <li>The manifest walk is now the reason the MCP server crate (<a href="#adr-026">ADR-026</a>) is on the list of checked
   directories: adding an HTTP or model dependency there fails a test about §60, which is exactly
   the coupling the rule wants.</li>
+<li><strong>Amendment, 2026-10-06:</strong> <code>apps/desktop</code> joined the walked list, so the walk now
+  reads 12 manifests. The shell is the surface where reaching for a network call is most tempting
+  and least excusable — it reads the same ports <code>wp</code> reads, so it has the same right to reach
+  nothing (<a href="#adr-029">ADR-029</a>). A dependency test that stops at the CLI leaves the window
+  unguarded, and the window is where a reader would notice.</li>
 <li>Timing bounds are stated with their measurements, so a slower machine knows what it is being
   asked to tolerate; when a bound trips, the message carries the numbers, not just the assertion.</li>
 <li>This does not measure UI latency, memory or concurrency, and does not pretend to: V1 has no
@@ -1123,10 +1154,10 @@ accept a file, but nothing in the workspace ever opens an MCP connection outward
    </ul></li>
 <li><strong>Transport is constrained by <a href="#adr-027">ADR-027</a>'s manifest rule, and that is settled here
    rather than discovered later.</strong> §60's ban list (<code>tokio</code>, <code>reqwest</code>, <code>axum</code>, …)
-   is enforced by a test over all 11 manifests, so an inbound client must be a blocking stdio child
-   process speaking newline-delimited JSON-RPC 2.0 — the same framing <code>wp-mcp</code> already
-   answers. Bringing an async runtime into the workspace would mean amending ADR-027, not editing a
-   <code>Cargo.toml</code>.</li>
+   is enforced by a test over every workspace manifest the walk reads, so an inbound client must be a
+   blocking stdio child process speaking newline-delimited JSON-RPC 2.0 — the same framing
+   <code>wp-mcp</code> already answers. Bringing an async runtime into the workspace would mean amending
+   ADR-027, not editing a <code>Cargo.toml</code>.</li>
 <li><strong>Reading 2 changes nothing about what chat content is allowed to be.</strong> Whatever an
    MCP client pulls lands as Events and evidence; it never writes the panel, the map or Project
    State directly, and a conversation is not project memory (禁止 9, <a href="#adr-022">ADR-022</a>). The panel
@@ -1148,12 +1179,159 @@ accept a file, but nothing in the workspace ever opens an MCP connection outward
 </ul>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
+<h2 id="adr-029">ADR-029 — The desktop shell is a second surface on the CLI&#x27;s own runtime, and its only write is §7.4&#x27;s confirm</h2>
+<div class="meta"><div><k>Status</k><span class="amended">accepted, amended 2026-10-06 — §14&#x27;s item 7 found its hand here</span></div><div><k>Date</k><span>2026-10-06</span></div><div><k>Ref</k><span>PROJECT_MASTER §13.2 Stage E, §14, §19 禁止 4 / 禁止 7; V1_DEVELOPMENT §38, §61 V1-E, §7.4, §7.8, §62; ADR-006, ADR-016, ADR-020, ADR-025, ADR-027</span></div></div>
+<h3>Context</h3>
+<p><a href="#adr-016">ADR-016</a> recorded ADR-006&#x27;s Tauri window as unbuilt; round 3 built it. A window
+invites exactly two shortcuts, and each one would break a frozen rule: opening the SQLite file
+through a Tauri plugin, because that is what GUI frameworks offer, and re-deriving "which project am
+I looking at", because a GUI wants a project picker. Either puts a second Project State or a second
+resolution order into the product (禁止 4, 禁止 7).</p>
+<p>The user also fixed the first screen&#x27;s flow, which is not a styling preference but a §7.4 and §7.8
+claim: 渲染 diff → 用户浏览哪些模块发生了变动 → 决定哪些变动生效 → 再进入
+<code>PROJECT_MAP</code>. So the shell must render what <em>already happened</em> as read-only, keep the deciding
+in the human&#x27;s hands, and put the two on the same screen.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong><code>apps/desktop</code> depends on <code>vibe_cli::app::App</code> — the same runtime <code>wp</code> builds.</strong>
+<code>workspace.rs</code> takes the database path from <code>vibe_cli::app::default_db()</code> and the project from
+<code>App::project()</code>, so the repository states "which workbench, which project" once. The window
+cannot disagree with the terminal, and nothing in <code>apps/desktop</code> holds a SQLite handle.</li>
+<li><strong>lib/bin split, so a GUI is testable without a webview.</strong> <code>src/views.rs</code> (lib) holds every
+view builder and returns typed <code>Serialize</code> structs; <code>src/commands.rs</code> (bin only) holds the twelve
+<code>#[tauri::command]</code> wrappers, each of which resolves the project and calls one builder.
+<code>apps/desktop/tests/views.rs</code> (12 tests) then drives the entire read path with the same in-memory
+fixture the CLI suites use. This is <a href="#adr-020">ADR-020</a>&#x27;s "two test layers, one implementation"
+applied to a window — the alternative is a GUI whose logic is only reachable by clicking.</li>
+<li><strong>Twelve commands, one of which writes.</strong> <code>project_info</code>, <code>overview_view</code>,
+<code>diff_view</code>, <code>map_view</code>, <code>decisions_view</code>, <code>evolution_view</code>, <code>timeline_view</code>,
+<code>drift_view</code>, <code>search_view</code>, <code>context_view</code> and <code>health_view</code> are reads — the eight screens
+§21 lists for V1-E, with the diff as the first one. <code>apply_pending</code> is the only reachable
+mutation, and every row it accepts routes through the path that already exists —
+<code>Inbox::resolve_*</code>, and for a change proposal §7.4&#x27;s own
+<code>ProjectService::accept_change_proposal</code>. There is no command that appends an event, folds the log
+or edits a state row: a screen that needs a new fact must grow an event type and a projector case first.</li>
+<li><strong>A pending row carries the verbs it can take, not a checkbox that means "approve".</strong> §7.4 has
+more than one decision to make (accept a proposal, reject a proposal, judge a pending event), and a
+boolean would have to guess which one the user meant. The view exposes <code>actions</code> per row; the front
+end renders a choice per row and sends <code>{id, kind, action}</code> triples; refusals come back named with a
+reason instead of disappearing.</li>
+<li><strong>Where an adapter cannot inject, copy-and-paste is shown as the whole path</strong> rather than a
+button that looks like a send (<a href="#adr-025">ADR-025</a>, §62). Sending stays a human action (§7.8),
+and the context screen says which adapter the text was prepared for.</li>
+<li><strong>The shell creates no project.</strong> When <code>project_info</code> fails the screen prints the two
+commands to run (<code>wp project create</code>, <code>wp project use</code>) and shows nothing else — the window does
+not pick a project for you, because a GUI that guessed would be a second source of that fact.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li><code>apps/desktop</code> is now inside <a href="#adr-027">ADR-027</a>&#x27;s manifest walk, so "the GUI opened a
+socket" is a failing test rather than a review comment. The window is the surface where a network
+call is most tempting and least excusable.</li>
+<li><strong>What is not covered, stated plainly:</strong> cargo asserts every Rust-side screen; the webview&#x27;s
+own rendering is checked by hand. "12 tests pass" is not the same claim as "the pixels are right",
+and the §61 V1-E acceptance is measured against both.</li>
+<li><strong>The click landed here, not in the engine.</strong> §14&#x27;s item 7 (&#x201c;用户点击某个 Issue&#x201d;) was the one
+acceptance item that had the logic and not the hand: <code>wp context build --select kind:id</code> already
+put a chosen record at tier 1 of §42&#x27;s ladder, and nothing pointed at it from a screen. The shell now
+does — a row on 偏航 or 检索 carries 「带它去上下文 →」, the context screen has a <code>kind:id</code> field,
+and a click alone is a complete request (the reference becomes the stated intent exactly as the CLI
+spells it, and <code>ContextView.focus</code> names what the pack is about). The reference grammar is not
+re-implemented: the shell calls <code>vibe_cli::context::parse_ref</code>. A screen with neither a question
+nor a click refuses, because §62 does not let it guess.</li>
+<li>Adding a screen is cheap and bounded. Adding a <em>capability</em> is not — event type, projector case,
+then a view. That friction is the intended outcome of decision 3, not an accident of the layout.</li>
+<li>Two Tauri facts are now part of the build notes, because both fail in ways a reader cannot guess:
+<code>tauri::generate_context!</code> requires <code>icons/icon.png</code> to be a genuine RGBA PNG (a palette PNG
+aborts the build), and a camelCase JS argument maps to a snake_case Rust parameter, so the front end
+sends <code>maxTokens</code> where the command declares <code>max_tokens</code>.</li>
+<li>The shell&#x27;s first round exposed <a href="#adr-030">ADR-030</a>: putting §7.4&#x27;s confirm button on a real
+screen was what made a payload-fidelity defect in the event chain visible at the surface.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-030">ADR-030 — A creating event has to carry the whole record, because a fold rebuilds rows from the log alone</h2>
+<div class="meta"><div><k>Status</k><span class="amended">accepted, amended 2026-10-06 — the same cache bites §42.1&#x27;s selection path too</span></div><div><k>Date</k><span>2026-10-06</span></div><div><k>Ref</k><span>PROJECT_MASTER §7.2, §7.4, §19 禁止 4 / 禁止 6; V1_DEVELOPMENT §15–§18, §31, §33, §42.1; ADR-002, ADR-014, ADR-027, ADR-029</span></div></div>
+<h3>Context</h3>
+<p>The shell&#x27;s first screen was built on <code>diff_view</code>, which folds through <code>Reducer::project_state</code> —
+the <em>materializing</em> fold. Ticking a change proposal and pressing 应用 reported success, and the scope
+baseline did not move. The cause was three links apart:</p>
+<ol>
+<li><code>open_change_proposal</code> appended <code>CHANGE_PROPOSAL_CREATED</code> with a payload of <code>proposalId</code>
+and <code>proposedChange</code> only.</li>
+<li><code>Projector</code> folds from an <em>empty</em> state (<a href="#adr-002">ADR-002</a>), so the row it builds for that
+proposal holds exactly what that payload carried — <code>reason: ""</code>, <code>delta: None</code> — and
+<code>project_state</code> persists those rebuilt rows.</li>
+<li><code>accept_change_proposal</code> reads the row back from the store and, at the end, applies
+<code>proposal.delta</code>. With the delta lost, §7.4&#x27;s "确认即锁定" skipped its own work in silence: the
+proposal was marked accepted and nothing was locked.</li>
+</ol>
+<p>The guard-engine test for that same flow passed, because it accepted the in-memory proposal its own
+call had returned — before any fold had rebuilt the row. A test that never materializes cannot see this,
+and neither can a test that materializes but compares only counts and titles.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong><code>CHANGE_PROPOSAL_CREATED</code>&#x27;s payload is the record</strong>: <code>proposalId</code>,
+<code>proposedChange</code>, <code>reason</code>, <code>affectedScope</code>, <code>affectedArchitecture</code>, <code>benefit</code>,
+<code>cost</code>, <code>risk</code>, <code>charterConflict</code> and <code>delta</code>. The event is where the record comes from,
+so it has to say what the record says.</li>
+<li><strong>The general rule, stated for the kinds not yet written:</strong> every field a record must still
+show after a fold belongs in the event that created it. "The payload is enough for the projector to
+touch the field it switches on" is not the bar — the projector writes the <em>whole</em> row, so a field
+the log omits is a field the cache loses. 禁止 4 makes the projection disposable and the cache a rebuild;
+that is what makes log completeness the only thing that can keep a field alive.</li>
+<li><strong>The regression test lives in the fold&#x27;s own suite, not the UI&#x27;s</strong>:
+<code>a_proposal_survives_materialization_with_the_delta_it_was_opened_with</code>
+(<code>crates/state-engine/tests/reducer.rs</code>) opens a proposal carrying a delta, folds with
+<code>project_state</code>, reads the row back and asserts <code>reason</code>, <code>delta</code> and
+<code>status == Open</code>. It fails against the previous payload, and it fails identically whether or not a
+window is compiled.</li>
+<li><strong>Transition events keep a thin payload.</strong> <code>CHANGE_PROPOSAL_ACCEPTED</code> /
+<code>_REJECTED</code> carry <code>proposalId</code>, <code>proposedChange</code>, <code>status</code> and the human&#x27;s
+<code>reason</code> — they are a change of mind about a record, and the projector reads only the status from
+them. Fixing this at the creating event, and not by fattening every payload in the catalog, keeps
+§18&#x27;s "the log is the input" true without turning each transition into a full snapshot of the row.</li>
+<li><strong>No backfill and no row patching.</strong> A log written before this decision keeps rebuilding
+the thin row it can rebuild; the remedy is to open the proposal again. Editing an <code>entities</code> row
+from outside the event chain would install 禁止 4&#x27;s second source of truth, and that mistake costs more
+than the one this ADR fixes. V1 is a single-user local workbench, so no orphaned proposal is worth a
+migration.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>Creating payloads get bigger. That is storage bytes, paid deliberately: the cache must stay
+throwaway, so the log must stay complete.</li>
+<li><code>project_read_only</code> is now a documented hazard when used as a stand-in for materialization — it
+never writes rows, so a test built on it will pass while <code>project_state</code> is destroying data. Any
+assertion about cached rows must use the materializing fold.</li>
+<li><strong>The same cache bites a second time, in the other direction.</strong> §42.1 resolves a user&#x27;s
+selection through <code>repos.entities</code> — the very rows the fold writes — so compiling a pack over a
+record that was accepted after the last <code>wp map</code> answered &#x201c;not found in this project&#x201d;. The fix is
+not a second read path: <code>wp context</code> dispatch, <code>wp-mcp</code>&#x27;s <code>context_pack</code> and the shell&#x27;s
+<code>context_view</code> each call <code>project_state</code> first, which is the write-through the map compile and
+a snapshot already performed. A fold-complete log plus an explicit materialize is the whole design;
+what was missing was saying which reads depend on it.</li>
+<li>Field-level fidelity is per entity kind, and only <code>ChangeProposal</code> is proven here. The existing
+budget test compares folded and cached rows by count and title, which is a real but narrower guarantee;
+a new kind whose row shows more than its title inherits this question and answers it with one fold plus
+one row read.</li>
+<li>The front end keeps no local copy of a proposal to fall back on. It renders what the fold produced,
+which is what surfaced this at the surface instead of leaving it in a database nobody reads
+(<a href="#adr-029">ADR-029</a>).</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
 <h2 id="provenance">六、来源与变更</h2>
 <ul>
   <li>本页正文由 <code>docs/adr/ADR-001…ADR-027</code> 共 <b>19</b> 份 markdown 汇总而成，
     汇总于 2026-10-05。<strong>决定的措辞未作任何修改</strong>；改变的只有载体。</li>
   <li><b>ADR-028</b>（2026-10-06）是介质变更之后的第一条：直接在 HTML 里追加，没有对应的 <code>.md</code> 原文，
-    因此上面的"19 份"仍然准确，本页总条数为 <b>20</b>。</li>
+    因此上面的"19 份"仍然准确。</li>
+  <li><b>ADR-029</b> 与 <b>ADR-030</b>（2026-10-06，第三轮）同样直接在页内追加；本页总条数为 <b>22</b>。
+    同一轮就地修订了 <a href="#adr-016">ADR-016</a>（V1-E 由"暂缓"改"已建"）、
+    <a href="#adr-020">ADR-020</a>（第三层测试与 19 条 e2e）、
+    <a href="#adr-027">ADR-027</a>（manifest 巡检纳入 <code>apps/desktop</code>）与
+    <a href="#adr-028">ADR-028</a>（去掉写死的清单条数）。</li>
   <li>原来的 <code>.md</code> 文件已按用户要求删除，内容只在本页保留。
     仓库内所有指向 <code>docs/adr/ADR-0NN-*.md</code> 的链接已改指本页锚点。</li>
   <li>需要 git 历史里的原文时：<code>git show 54cdb5d:docs/adr/&lt;文件名&gt;.md</code>。</li>

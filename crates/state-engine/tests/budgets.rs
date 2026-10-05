@@ -326,6 +326,9 @@ fn no_manifest_in_the_workspace_reaches_a_network_or_a_model() {
         "crates/search",
         "crates/mcp-server",
         "apps/cli",
+        // The shell is the surface where a network call is most tempting and least excusable:
+        // it reads the same ports the CLI reads, so it has the same right to reach nothing.
+        "apps/desktop",
     ] {
         let manifest = workspace.join(crate_dir).join("Cargo.toml");
         // An absent crate is not a violation: this test must keep passing as the tree

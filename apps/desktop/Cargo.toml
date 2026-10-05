@@ -1,0 +1,37 @@
+[package]
+name = "wp-desktop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# A library target as well as a binary, so `tests/views.rs` drives the same view builders the
+# window does. The binary exists only to hand those views to a webview.
+[lib]
+name = "wp_desktop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wp-desktop"
+path = "src/main.rs"
+
+[dependencies]
+vibe-domain.workspace = true
+vibe-core.workspace = true
+vibe-state-engine.workspace = true
+vibe-guard-engine.workspace = true
+vibe-context-engine.workspace = true
+vibe-ingestion.workspace = true
+vibe-search.workspace = true
+# The shell resolves the database file and the current project through the CLI's own runtime
+# rather than repeating its rules: two surfaces must not pick two different project files.
+vibe-cli.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
+
+[build-dependencies]
+tauri-build = { version = "2" }
+
+[dev-dependencies]
+tempfile.workspace = true
+vibe-storage.workspace = true
