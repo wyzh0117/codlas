@@ -306,9 +306,41 @@ fn prepare_hands_the_payload_to_a_human_and_an_audit_row_to_the_record() {
     // §7.8: the workbench compiles, the user sends. Nothing here claims to have
     // contacted an agent.
     assert!(
-        prepared.contains("sends nothing") && prepared.contains("copy it in"),
+        prepared.contains("sends nothing") && prepared.contains("paste the prepared pack"),
         "prepare must be honest about who does the sending:\n{prepared}"
     );
+    // §58: those words are the adapter contract's `fallback` verb, and a fallback has to
+    // name the payload the user is being asked to carry.
+    assert!(
+        prepared.contains(&format!("payload written to {out}")),
+        "the fallback must point at the file it wants carried:\n{prepared}"
+    );
+
+    let handed_over = work.json(&[
+        "context",
+        "prepare",
+        "--question",
+        "why lexical drift",
+        "--to",
+        "local-coding-agent",
+        "--tokens",
+        "500",
+        "--out",
+        &out,
+    ]);
+    assert_eq!(
+        handed_over["fallback"]["payloadPath"].as_str(),
+        Some(out.as_str()),
+        "the machine read says which file to carry"
+    );
+    assert!(
+        handed_over["fallback"]["instruction"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("sends nothing"),
+        "same words, whichever way the pack is read:\n{handed_over}"
+    );
+    assert_eq!(handed_over["copyFallback"].as_bool(), Some(true));
 
     assert!(after > before, "preparing a pack must leave a trace (§54)");
     let newest = &work.json(&["audit", "--limit", "1"])[0];

@@ -64,18 +64,33 @@ pub trait AgentAdapter: Send + Sync {
     /// because "no answer" is precisely the silent failure this path exists to avoid.
     fn fallback(&self, target: &AgentTarget) -> Fallback {
         Fallback {
-            adapter_id: self.id().to_string(),
-            instruction: format!(
-                "paste the prepared pack into {target:?} yourself — the workbench sends nothing"
-            ),
             deep_link: self.deep_link(target),
-            payload_path: None,
+            ..fallback_for(target, self.id(), None)
         }
     }
 
     /// A deep link the user can click instead of pasting.
     fn deep_link(&self, _target: &AgentTarget) -> Option<String> {
         None
+    }
+}
+
+/// The §58 fallback sentence, written in exactly one place. The trait default above and a
+/// caller that holds no adapter instance — `wp context prepare`, which has a target name and
+/// maybe a file it just wrote — must not drift apart, because this sentence *is* the degraded
+/// path §62 promises always exists.
+pub fn fallback_for(
+    target: &AgentTarget,
+    adapter_id: &str,
+    payload_path: Option<&str>,
+) -> Fallback {
+    Fallback {
+        adapter_id: adapter_id.to_string(),
+        instruction: format!(
+            "paste the prepared pack into {target:?} yourself — the workbench sends nothing"
+        ),
+        deep_link: None,
+        payload_path: payload_path.map(str::to_string),
     }
 }
 

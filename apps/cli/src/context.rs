@@ -225,6 +225,11 @@ pub fn dispatch(app: &App, project: Option<&str>, command: ContextCommand) -> Re
             if let Some(path) = &out {
                 crate::app::write_file(path, payload.text.as_bytes())?;
             }
+            let fallback = vibe_ingestion::fallback_for(
+                &payload.target,
+                &payload.adapter_id,
+                out.as_ref().and_then(|p| p.to_str()),
+            );
             if app.json {
                 return app.print_json(&serde_json::json!({
                     "adapterId": payload.adapter_id,
@@ -232,18 +237,19 @@ pub fn dispatch(app: &App, project: Option<&str>, command: ContextCommand) -> Re
                     "text": payload.text,
                     "deepLink": payload.deep_link,
                     "copyFallback": payload.copy_fallback,
+                    "fallback": fallback,
                     "packId": pack.id,
                 }));
             }
             println!("{}", payload.text);
             app.say(format!(
-                "\nprepared for {} ({} tokens) — the workbench sends nothing; copy it in, \
-                 or wire an adapter that can",
+                "\nprepared for {} ({} tokens) — {}",
                 one_line(&payload.adapter_id),
-                pack.token_estimate
+                pack.token_estimate,
+                fallback.instruction
             ));
-            if let Some(path) = &out {
-                app.say(format!("written to {}", path.display()));
+            if let Some(path) = &fallback.payload_path {
+                app.say(format!("payload written to {path} — that is the file to carry"));
             }
             Ok(())
         }

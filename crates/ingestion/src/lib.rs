@@ -30,7 +30,7 @@ pub mod near_duplicate;
 pub mod normalizer;
 pub mod pipeline;
 
-pub use adapter::AgentAdapter;
+pub use adapter::{fallback_for, AgentAdapter};
 pub use adapters::{GenericCliAdapter, ManualImportAdapter, TranscriptAdapter};
 pub use file_scan::{
     FileScan, FileScanReport, ScanChange, ScanKind, BINARY_SNIFF_BYTES, DEFAULT_MAX_BYTES,
