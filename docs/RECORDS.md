@@ -7,6 +7,95 @@
 
 ---
 
+## 2026-10-06 · V1 缺口清点：§38.5 的另一半改记为"还欠着"（ADR-028）
+
+这一节不动产品逻辑，只做两件事：把上一轮的判断错误改正过来，以及把"V1 还剩什么"对着文档核一遍。
+
+### 为什么要改
+
+用户的实际目标是"软件通过获取 agent 那边和用户的聊天内容，以此为根据更新软件的进度面板"。
+§38.5 的"MCP 基础接口"有两个方向：**别人（agent）通过 MCP 读我的工作台**，和**工作台通过 MCP 去读别人**。
+第二轮把这一条整体判成完成，靠的是前者（`crates/mcp-server` + `wp-mcp`，ADR-026），后者一行代码都没有。
+用户拍定按"还欠着"记，于是 ADR-028 把欠的部分、触发条件、届时的形状（`McpClientAdapter` 七个动词怎么映射）
+和一条由 §60 依赖禁令推出的硬约束（只能 stdio 阻塞，不许为它引 async runtime）写死；
+§26 的 V1-D 行从 ✅ 退回 ◐，ADR-016 / ADR-026 各就地修订一次。
+
+### V1 边界内、确实还没做的（四件里清掉一件，还剩三件）
+
+1. **V1-E 桌面壳**（§26 下一站 / Stage G 的界面腿）：`apps/desktop` 不存在。第一屏的流程用户已经拍定：
+   **渲染 diff → 用户浏览哪些模块发生了变动 → 决定哪些变动生效（§7.4 确认即锁定）→ 再进 map**。
+2. **V1-D 浏览器扩展 + Native Messaging**（§34 / §35 / §38.2 / §38.3）：`open` 与 `inject` 到现在为止
+   只有 trait 里的默认 `Ok(None)`，没有任何一个真实实现——§58 的 review 之所以带负控，正是为了不把这个
+   空档说成能力。
+3. **§38.5 入站方向**：见上，ADR-028。
+4. ~~**`wp context prepare` 的兜底文案**~~ —— **本轮已清掉**。它原来打的是 `PreparedPayload.copy_fallback`
+   旁边那句写在使用处的话（`apps/cli/src/context.rs`），而不是 §58 适配器合同的 `fallback()`。
+   现在句子只有一个出处：`vibe_ingestion::fallback_for()`，trait 的默认实现与 CLI 都走它，
+   `--json` 在 `copyFallback` 之外多带一个 `fallback` 对象，人类输出会把 `--out` 的文件名说出来
+   （兜底要是说不清要携带哪一份 payload，它的 `payloadPath` 字段就是空着说谎）。
+   ADR-025 当初许的是"一行改动、行为无差别"，实测不止，所以那条 ADR 就地修订。
+
+### 半成品（不是遗漏，是被人的一半）
+
+- **§14 第 7 项"用户点击某个 Issue"**：机器动作齐了（`wp map` → `wp drift` → `wp context build --select kind:id`），
+  缺的是一只可点的手。归 V1-E。
+- **§14 第 9 项"成功准备到另一个 Agent"**：`prepare` 出 payload、复制兜底可用；"发送"按 §7.8 与 §62
+  Degradation 本来就必须是人的动作。真正缺的是任何 adapter 的 `inject`。归 V1-D。
+- **§40 L2 的中文检索**：`unicode61` 不把 CJK 切词，一整段中文是一个 token，所以查 `"上下文"`
+  命中不了 `"上下文引擎保持词法实现"`（实测：sqlite3 3.51 下 `MATCH '状态'` = 0 行，整串 = 1 行）。
+  这不是新发现的窟窿——`crates/search/tests/retrieval.rs:372`
+  `full_text_matches_a_whole_token_not_a_piece_of_a_chinese_run` 已经把它钉成记录在案的限制，注释里
+  写明了出路（trigram）。V1 的条款只要求 "SQLite FTS5"，所以按字面它是完成的；要不要补中文分词是
+  产品决定，bigram / trigram 都不需要新依赖，也不需要违反 §60。
+
+### §62 七门现状
+
+Continuity ✅ · Fidelity ✅ · Traceability ✅ · Drift ✅ · Recovery ✅ · Degradation ✅（`fallback` 是唯一
+不能不答的动词，契约测试带负控）· **Context ◐**——能编译、能复制、能被 agent 通过 `wp-mcp` 读走，
+缺的是把包"送进去"的那条写面（V1-D）。
+
+### 超出 V1 边界的，不算欠账
+
+语义/向量检索 → AEP-002；本地→云同步 → AEP-001；内置→插件 adapter → AEP-003；基础偏航→智能偏航 → AEP-004；
+扁平状态→实体/架构图谱 → AEP-005。另外 `PROJECT_MASTER` §5 的技术树里画了 `crates/agent-runtime` 和
+`packages/{schemas,adapter-sdk,shared,ui}`，但 §61 / §62 / §14 没有一条要求它们，而 §5 自己写着
+"未来允许更换具体技术实现"——把树上的方框当 V1 欠账，就是 禁止 8 的提前实现。
+
+### 一条更正（不改历史，只追加）
+
+提交 `54cdb5d` 的信息里写契约测试"放过了一个声称自己答不出动词的 adapter"，这句是反的。
+真实缺陷是：**默认 trait 方法让一个什么都不做的 adapter 也能通过 review**——它没声称任何能力，
+却拿到了通过；负控（把一份已知违例喂进同一套 review，并要求它报出违例）才是让这份 review
+说得出人话的东西。RECORDS 2026-10-05 第二轮一节与 `V1第二轮开发报告.html` 已带正确版本，
+本轮另起一条更正提交说明它，不去改写已推送的历史。
+
+---
+
+## 2026-10-05 · ADR 介质变更：19 份 .md 汇总为一个 HTML 页
+
+不改代码、不改决定，只改载体（用户指令）。
+
+- **做了什么**：`docs/adr/ADR-001…027` 共 19 份 markdown 逐条渲染进
+  `docs/adr/ADR-总览.html`（单页、自包含 CSS、每条一个锚点、ADR/AEP 交叉引用变成页内跳转），
+  然后删除全部 `.md`。`docs/adr/README.md` 保留为指针页：索引表 + 缺号说明 + 追加新条目的步骤。
+- **为什么这样切**：ADR 的数量已经多到在 markdown 里读不动（19 条约 57 KB，最长一条 4.6 KB 散文），
+  而它的价值恰恰是"被人读到"。决定本身一个字没动——变的是承载它的文件。
+- **忠实性怎么证的**：脚本把页面纯文本抽取出来（丢弃 markdown 语法字符、列表符号、行折叠），
+  逐行核对 669 个内容行（≥24 个字母数字/CJK 字符的行）全部出现在页面里；
+  `missing content lines: 0`；锚点 19 个、页内交叉链接 35 条、悬空 fragment 0、
+  相对链接指向的文件全部存在。脚本是一次性的，未入库。
+- **引用重指**：`V1第二轮开发报告.html` 16 处 `docs/adr/ADR-0NN-*.md` → `ADR-总览.html#adr-0NN`；
+  `crates/core/src/ports.rs` 的文件头注释同改；`PROJECT_MASTER.md` §11 的 ADR 条目补介质约定
+  （新增决定从 ADR-028 起，直接在页内追加，不再建 .md）。
+- **任务报告的挂法**：该页第四节「任务报告」是每轮 HTML 报告的落点，已挂第一轮（指向本页记录）
+  与第二轮 `V1第二轮开发报告.html`，之后每轮在此追加一行。
+- **未做**：`docs/evolution/` 的 5 份 AEP 仍是 markdown（用户只要求汇总 ADR）；
+  页面是生成的，但此后**手工维护**——原 .md 已删，不再保留再生成路径。
+- **恢复原文**：`git show 54cdb5d:docs/adr/<文件名>.md`（汇总前的提交，已在远端）。
+- **紧随其后**：同一批清点里补了 §38.5 的第二读法，产出 ADR-028（见上一节）。
+
+---
+
 ## 2026-10-05 · V1 第二轮：把第一轮留下的半成品与缺口做完（Stage D/E/F/G/H + §38 MCP）
 
 ### LAST COMPLETED

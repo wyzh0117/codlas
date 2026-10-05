@@ -523,6 +523,12 @@ Context Pack
 
 > 已经正式做出的架构决定及原因。
 
+介质（2026-10-05 起）：全部 ADR 汇总在 **`docs/adr/ADR-总览.html`** 一个页面里，
+逐条带锚点（`#adr-0NN`），页内同时挂每一轮的任务报告链接。原 `docs/adr/ADR-0NN-*.md`
+已删除，决定措辞未改；新增决定直接在该页追加一节，编号继续从 ADR-029 排（ADR-028 已于 2026-10-06
+页内追加，记的是 §38.5 入站 MCP 采集还欠着），不再单独建 .md。
+`docs/adr/README.md` 只留索引与追加规则。总控正文引用决定时写 `(ADR-0NN)`，不写路径。
+
 ## AEP
 
 > 已设计但尚未启动的架构演进路线及触发条件。
@@ -908,7 +914,8 @@ CURRENT LARGE ITERATION:
 V1
 
 CURRENT DEVELOPMENT STATE:
-V1 Core Loop Implemented / CLI Workbench Runnable / Hardening Done / MCP Surface Readable / Desktop UI Not Started
+V1 Core Loop Implemented / CLI Workbench Runnable / Hardening Done / MCP Read Surface Shipped /
+MCP Inbound Capture Owed (ADR-028) / Desktop UI Not Started
 
 LAST COMPLETED:
 - Rust monorepo：`crates/domain|core|storage|state-engine|guard-engine|context-engine|ingestion|security|search|mcp-server` + `apps/cli`
@@ -926,22 +933,27 @@ LAST COMPLETED:
 - §39 **监听**：`wp watch` 一次 pass 相减出分支、脏集合与文件出现/改动/消失；新增 `GIT_BRANCH_CHANGED` / `GIT_STATUS_CHANGED`；监听信号不折进 Project State（ADR-022）
 - §52 **L3 近似重复**：`wp duplicates` 只出提示、不合并、不删除；词法 Jaccard + CJK 字符 bigram；读取窗口补 `rowid DESC` 保证确定性（ADR-024）
 - §58 **Adapter Contract**：七个动词齐（含 `inject` / `fallback`），`fallback` 是唯一不能不答的动词；契约测试对每个 adapter 跑同一份 review 并带负控（ADR-025）
-- §38.5 **MCP 基础接口**：`crates/mcp-server` + `wp-mcp`，stdio JSON-RPC 2.0，六个只读工具全部经现有端口与 service，`context_pack` 过同一个 Policy Filter 并留 §54 audit（ADR-026）
+- §38.5 **MCP 基础接口（出向那一半）**：`crates/mcp-server` + `wp-mcp`，stdio JSON-RPC 2.0，六个只读工具全部经现有端口与 service，`context_pack` 过同一个 Policy Filter 并留 §54 audit（ADR-026）
+- §38.5 **MCP 基础接口（入向那一半）＝还欠着**：工作台主动去读 agent 那边的会话目前没有实现——`SourceType::Mcp` 与 `"mcp"` 线串已在词汇表里，`wp import transcript … --source-type mcp` 也收文件，但工作区里没有任何代码向外开 MCP 连接。触发条件、`McpClientAdapter` 七个动词怎么映射、以及"必须 stdio 阻塞、不许引 async runtime"这条由 §60 决定的约束，全部记在 **ADR-028**；§26 的 V1-D 行因此从 ✅ 改回 ◐
+- §58 **prepare 改问 `fallback()`**：`vibe_ingestion::fallback_for()` 成为那句兜底话的唯一出处，trait 默认实现与 `wp context prepare` 都走它，`--json` 多带 `fallback` 对象，人类输出点名 `--out` 写出的那份 payload（ADR-025 就地修订）
+- ADR 介质变更：19 份 `docs/adr/ADR-*.md` 汇总为单页 `docs/adr/ADR-总览.html`（措辞未改，逐行核验 669 行内容无缺失、19 锚点、35 处交叉链接、0 断链），此后 ADR 直接在该页追加，任务报告也在该页「四、任务报告」挂链
 - §59 / §60 **预算**：纯折叠 ≤250 ms（实测 ~40 ms）、整条链 ≤20 s 的 hang/O(n²) tripwire（实测 ~6 s）；其余是工作量断言；成本规则由 11 个 manifest 的依赖扫描钉住（ADR-027）
 - 测试：`cargo test --workspace` = 247 passed / 0 failed / 1 ignored（Keychain 需 opt-in），构建零 warning
 
 CURRENT BLOCKER:
 None for V1's core, capture, context, guard and hardening surfaces. The next round is V1-E and it
-needs no new core logic — the only thing to decide is which already-compiled view the desktop shell
-renders first (map / diff / pack / adapters / duplicates / backup status), because ADR-020 forbids the
-UI becoming a second place where events are interpreted.
+needs no new core logic — the shell's first screen is decided (see NEXT IMMEDIATE TARGET: diff
+first), so what remains is presentation wiring, and ADR-020 forbids the UI becoming a second place
+where events are interpreted.
 
 NEXT IMMEDIATE TARGET:
-V1-E Workbench（Tauri 2 桌面壳）：
-Overview → Timeline → Project Map → Decisions → Drift / Inbox → Search → Context Preview，
+V1-E Workbench（Tauri 2 桌面壳，`apps/desktop`）。第一屏按用户 2026-10-05 拍定的流程走：
+**渲染 diff → 用户浏览哪些模块发生了变动 → 决定哪些变动生效（§7.4 确认即锁定）→ 再进 map**；
+其后 Overview → Timeline → Decisions → Drift / Inbox → Search → Context Preview，
 以及本轮多出的三块原料：`wp adapters` 的判词、`wp duplicates` 的提示、`wp backup status` 的完整性结论。
-只做展示与交互，读写全部走现有 ports；随后 V1-D 浏览器扩展 + Native Messaging——那才是 `inject` /
-`open` 第一次被真实实现的时候。
+只做展示与交互，读写全部走现有 ports。随后 V1-D 浏览器扩展 + Native Messaging——那才是 `inject` /
+`open` 第一次被真实实现的时候；那一轮还挂着的那件小债就是 ADR-028 的入站 MCP
+（`wp context prepare` 的 fallback 债已在 2026-10-06 清掉，见 ADR-025 的修订）。
 §14 判定：第 2、3、6 项已可从 CLI 走到；第 1、4、5、8、9、10 项在核心、CLI 与 MCP 读面上已具备；
 第 7 项（点击某个 Issue）与"发送进另一个 Agent"仍缺界面与 adapter 传输。
 
@@ -1139,8 +1151,11 @@ NEXT IMMEDIATE TARGET
 V1-A Foundation ✅
 V1-B Project Baseline ✅
 V1-C State Engine ✅
-V1-D Capture ✅（核心与 CLI + §38.5 MCP 只读接口；浏览器扩展与 Native Messaging 未做）
-V1-E Workbench ⏳ 下一站：Tauri 只做已编译视图的展示
+V1-D Capture ◐（核心 + CLI + §38.5 的出向 MCP 只读接口已做完；
+              还欠两半：浏览器扩展与 Native Messaging，以及**入站** MCP 采集——
+              工作台主动去读 agent 那边的会话。触发条件与届时形状记在 ADR-028，
+              上一版把这行整体标成 ✅ 是把 §38.5 只读了一种）
+V1-E Workbench ⏳ 下一站：Tauri 只做已编译视图的展示（第一屏 diff → 用户挑哪些变动生效 → map）
 V1-F Context Engine ✅
 V1-G Guard ✅
 V1-H Hardening ✅（Export / Backup+Restore / Audit / Adapter Health / 监听 / 性能预算 /
