@@ -9,8 +9,11 @@ use serde_json::json;
 use vibe_cli::app::App;
 use vibe_core::event_store::{EventDraft, EventStore};
 use vibe_core::ports::EntityStore;
-use vibe_core::project_service::ProjectService;
-use vibe_domain::{ActorType, ChangeProposal, ChangeProposalStatus, EntityKind, ScopeSection};
+use vibe_core::project_service::{BaselineDraft, CharterDraft, ProjectService};
+use vibe_domain::{
+    ActorType, ArchitectureInvariant, ArchitectureLayer, ChangeProposal, ChangeProposalStatus,
+    EntityKind, ScopeSection,
+};
 use wp_desktop::views::{self, PendingChoice};
 use vibe_guard_engine::DriftEngine;
 use vibe_state_engine::{Reducer, SnapshotService};
@@ -53,6 +56,154 @@ impl Bench {
                     .payload(json!({ "taskId": id, "title": title })),
             )
             .expect("append task");
+    }
+
+    /// One accepted event, written the way the CLI writes it, so a fixture never invents a fact
+    /// the engines would not have produced.
+    fn record(&self, kind: &str, subject_kind: &str, subject_id: &str, payload: serde_json::Value) {
+        EventStore::new(self.app.repos.clone())
+            .append(
+                EventDraft::new(self.project_id.clone(), kind)
+                    .user()
+                    .subject(subject_kind, subject_id)
+                    .payload(payload),
+            )
+            .expect(kind);
+    }
+
+    /// §9's Charter — the only record ① can be read from.
+    fn charter(&self) {
+        self.projects
+            .save_charter(
+                &self.project_id,
+                CharterDraft {
+                    original_problem: "决定散落在聊天记录里，没人说得清项目走到了哪一步".into(),
+                    target_user: Some("同时推进两三个项目的独立开发者".into()),
+                    core_value: "任何时候都能回答「现在最该做什么」".into(),
+                    must_have: vec!["本地优先".into(), "事件是唯一事实源".into()],
+                    ..Default::default()
+                },
+                ActorType::User,
+            )
+            .expect("save charter");
+    }
+
+    fn phase(&self, phase: &str) {
+        self.projects
+            .update_phase(&self.project_id, phase)
+            .expect("declare the phase");
+    }
+
+    /// §11's Architecture Baseline — the line the drift rules measure against, and §47's first leg.
+    fn baseline(&self) {
+        self.projects
+            .set_baseline(
+                &self.project_id,
+                BaselineDraft {
+                    summary: "单体 CLI 折叠事件，桌面壳只画投影".into(),
+                    layers: vec![ArchitectureLayer {
+                        id: "layer-shell".into(),
+                        name: "展示层".into(),
+                        responsibility: Some("把投影画出来，不解释事件".into()),
+                    }],
+                    invariants: vec![ArchitectureInvariant {
+                        id: "inv-one-state".into(),
+                        text: "壳里不得出现第二套 Project State（禁止 4）".into(),
+                        detect: vec!["apps/desktop/src/views.rs".into()],
+                    }],
+                    replaceable_parts: vec!["存储实现".into()],
+                },
+                ActorType::User,
+            )
+            .expect("set baseline");
+    }
+
+    /// A boundary that excludes nothing, so a fixture can hold three baselines and still have
+    /// no drift to report.
+    fn boundary(&self) {
+        self.projects
+            .update_scope(
+                &self.project_id,
+                vec![(ScopeSection::InScope, "本地 SQLite 单文件".into())],
+                vec![],
+                ActorType::User,
+            )
+            .expect("seed the boundary");
+    }
+
+    fn aep(&self, id: &str, code: &str, title: &str) {
+        self.record(
+            vibe_domain::event_catalog::AEP_CREATED,
+            "aep",
+            id,
+            json!({
+                "aepId": id,
+                "code": code,
+                "title": title,
+                "current": "只有一台机器上的 SQLite",
+                "limitation": "换设备要搬文件",
+                "whyNotNow": "没有任何触发条件成立",
+                "trigger": ["出现第二台常用设备"],
+                "target": "同一套事件日志在两台机器上收敛",
+                "changeSurface": ["storage"],
+                "preservedCore": ["事件优先"],
+            }),
+        );
+    }
+
+    /// The record moves only by its own event: a shell-side flag would be a second truth.
+    fn move_aep(&self, id: &str, kind: &str) {
+        self.record(kind, "aep", id, json!({ "aepId": id }));
+    }
+
+    fn issue(&self, id: &str, title: &str) {
+        self.record(
+            vibe_domain::event_catalog::ISSUE_FOUND,
+            "issue",
+            id,
+            json!({
+                "issueId": id,
+                "title": title,
+                "detail": "§43 的裁决在 CLI 有输出，桌面上看不到",
+            }),
+        );
+    }
+
+    fn blocked(&self, id: &str, title: &str) {
+        self.record(
+            vibe_domain::event_catalog::TASK_BLOCKED,
+            "task",
+            id,
+            json!({ "taskId": id, "title": title, "reason": "等 §43 的口径" }),
+        );
+    }
+
+    fn milestone(&self, id: &str, title: &str, reached: bool) {
+        self.record(
+            vibe_domain::event_catalog::MILESTONE_CREATED,
+            "milestone",
+            id,
+            json!({ "milestoneId": id, "title": title }),
+        );
+        if reached {
+            self.record(
+                vibe_domain::event_catalog::MILESTONE_REACHED,
+                "milestone",
+                id,
+                json!({ "milestoneId": id }),
+            );
+        }
+    }
+
+    /// The rules run exactly as `wp drift check` runs them — nothing here is authored for the
+    /// screen.
+    fn drift(&self) {
+        let state = Reducer::new(self.app.repos.clone())
+            .project_read_only(&self.project_id)
+            .expect("fold");
+        DriftEngine::new(self.app.repos.clone())
+            .check(&state)
+            .expect("check drift");
     }
 
     fn snapshot(&self, label: &str) {
@@ -408,6 +559,229 @@ fn the_overview_counts_what_the_fold_produced_and_admits_what_is_absent() {
     assert_eq!(view.open_proposals, 0, "nothing is waiting on a verdict here");
 }
 
+/// §46 is the first screen's contract, and it is six questions in a fixed order. A project with
+/// every record the questions can be read from answers all six — and then announces nothing.
+#[test]
+fn the_overview_answers_the_six_questions_in_order() {
+    assert_eq!(
+        views::QUESTIONS,
+        [
+            "最初目标是什么？",
+            "当前阶段是什么？",
+            "最近发生了什么？",
+            "当前最大问题是什么？",
+            "有没有偏航？",
+            "下一步是什么？",
+        ],
+        "the screen walks §46's list, it does not write its own"
+    );
+
+    let f = bench();
+    f.charter();
+    f.phase("MVP 收尾");
+    f.baseline();
+    f.projects
+        .update_scope(
+            &f.project_id,
+            vec![(ScopeSection::Forbidden, "多人协作".into())],
+            vec![],
+            ActorType::User,
+        )
+        .expect("seed the boundary");
+    f.milestone("m-1", "首个可用版本", true);
+    f.task("t-1", "支持多人协作编辑");
+    f.blocked("t-2", "把裁决口径写进视图");
+    f.issue("I-1", "首屏没有说明哪些来源被预算挡下");
+    f.drift();
+
+    let view = views::overview_view(&f.app, &f.project_id).expect("overview");
+    assert_eq!(view.questions, views::QUESTIONS, "the screen renders the list it was handed");
+
+    // ① the charter's own words, hydrated by the reducer, versioned like every baseline.
+    let intent = view.intent.expect("a charter answers ①");
+    assert!(intent.original_problem.contains("聊天记录"), "{intent:?}");
+    assert_eq!(intent.core_value, "任何时候都能回答「现在最该做什么」");
+    assert_eq!(intent.target_user.as_deref(), Some("同时推进两三个项目的独立开发者"));
+    assert_eq!(intent.must_have, vec!["本地优先", "事件是唯一事实源"]);
+    assert_eq!(intent.version, 1, "the version is the record's, not the screen's");
+    assert!(!intent.locked, "nothing locked this charter");
+
+    // ② what the project row declares, plus the milestones that mark it.
+    assert!(view.phase.declared, "{:?}", view.phase);
+    assert_eq!(view.phase.phase.as_deref(), Some("MVP 收尾"));
+    assert_eq!(view.phase.status, "active", "the lifecycle word is the record's");
+    assert_eq!(view.phase.milestones, vec!["首个可用版本 — reached"]);
+
+    // ③ the newest accepted events, newest first, in the timeline's own rows.
+    assert_eq!(view.recent.len(), 3, "「最近」 is bounded on purpose: {:?}", view.recent);
+    assert_eq!(view.recent[0].seq, view.last_seq, "the first row is the newest fact");
+    assert_eq!(view.recent[0].kind, vibe_domain::event_catalog::DRIFT_DETECTED);
+
+    // ④ the head of the queue §29 already ranked, with the counts behind it.
+    let problem = &view.problem;
+    let headline = problem.headline.as_ref().expect("the drift waits on a verdict");
+    assert_eq!(headline.kind, "drift_alert", "{headline:?}");
+    assert_eq!(problem.queue, 3, "{problem:?}");
+    assert_eq!(problem.open_issues, 1);
+    assert_eq!(problem.blocked_tasks, 1);
+
+    // ⑤ counted from the alerts the rules recorded, rule · severity, no shell-side re-ranking.
+    // Three rules fired on this fixture and the screen names all three: it does not pick the
+    // scary one.
+    assert!(view.drift.drifting, "{:?}", view.drift);
+    assert_eq!(
+        view.drift.kinds.iter().map(|row| row.count).sum::<usize>(),
+        3,
+        "{:?}",
+        view.drift.kinds
+    );
+    assert_eq!(view.drift.open, view.drift.recorded, "nothing has been judged yet");
+    assert!(
+        view.drift
+            .kinds
+            .iter()
+            .any(|row| row.status == "scope_drift · warning"),
+        "{:?}",
+        view.drift.kinds
+    );
+
+    // ⑥ PROJECT_MAP's own section, not a recomposition of it.
+    assert!(
+        view.next_actions
+            .iter()
+            .any(|line| line.contains("Decide on scope_drift")),
+        "{:?}",
+        view.next_actions
+    );
+    assert!(
+        view.next_actions
+            .iter()
+            .any(|line| line.contains("首屏没有说明哪些来源被预算挡下")),
+        "{:?}",
+        view.next_actions
+    );
+
+    assert!(view.gaps.is_empty(), "every question had a record to read: {:?}", view.gaps);
+}
+
+/// ⑥ is the one question the shell must not answer twice: the overview shows the map's
+/// `Next Actions`, line for line, because §31 already composes them.
+#[test]
+fn the_overview_shows_the_maps_next_actions_instead_of_writing_its_own() {
+    let f = bench();
+    f.task("t-1", "搭起事件链");
+    f.issue("I-1", "首屏没有说明哪些来源被预算挡下");
+
+    let overview = views::overview_view(&f.app, &f.project_id).expect("overview");
+    let map = views::map_view(&f.app, &f.project_id).expect("map");
+    let section = map
+        .sections
+        .iter()
+        .find(|section| section.name == "Next Actions")
+        .expect("the map has the section §31 names");
+
+    assert_eq!(
+        overview.next_actions, section.lines,
+        "the same compiled lines, in the same order"
+    );
+    assert!(overview.next_actions.len() >= 4, "{:?}", overview.next_actions);
+    assert!(
+        !overview.gaps.iter().any(|gap| gap.label == views::Q_NEXT),
+        "an answered question is not announced as a gap: {:?}",
+        overview.gaps
+    );
+}
+
+/// ⑤ has a real answer even when the answer is no: `drifting: false` is stated, not hidden
+/// behind an empty box.
+#[test]
+fn the_overview_says_no_when_the_rules_found_nothing() {
+    let f = bench();
+    f.task("t-1", "搭起事件链");
+
+    let view = views::overview_view(&f.app, &f.project_id).expect("overview");
+
+    assert!(!view.drift.drifting, "no rule raised anything, and the screen says so");
+    assert_eq!(view.drift.open, 0);
+    assert_eq!(view.drift.recorded, 0);
+    assert!(view.drift.kinds.is_empty(), "{:?}", view.drift.kinds);
+    assert_eq!(view.drift_findings, 0, "the old count agrees with the new answer");
+    assert!(
+        !view.gaps.iter().any(|gap| gap.label == views::Q_DRIFT),
+        "「没有偏航」 is an answer, not a gap: {:?}",
+        view.gaps
+    );
+}
+
+/// A question the records cannot answer is announced with its reason instead of shown as a
+/// fact the shell made up — ADR-011's rule for an empty map section, applied to a screen.
+#[test]
+fn the_overview_announces_what_the_records_do_not_hold() {
+    let f = bench();
+
+    let view = views::overview_view(&f.app, &f.project_id).expect("overview");
+
+    assert!(view.intent.is_none(), "① has nothing to read");
+    assert!(!view.phase.declared, "② has nothing to read");
+    assert_eq!(view.gaps.len(), 2, "{:?}", view.gaps);
+    assert_eq!(view.gaps[0].label, views::Q_INTENT);
+    assert!(view.gaps[0].reason.contains("Charter"), "{:?}", view.gaps[0]);
+    assert_eq!(view.gaps[1].label, views::Q_PHASE);
+    assert!(view.gaps[1].reason.contains("current_phase"), "{:?}", view.gaps[1]);
+
+    // ③ has the project opening, ④ has nothing waiting, ⑤ answers no, ⑥ has the baseline gaps
+    // to report — so only the two records that were never written are missing.
+    assert_eq!(view.recent.len(), 1, "{:?}", view.recent);
+    assert_eq!(view.recent[0].kind, vibe_domain::event_catalog::PROJECT_CREATED);
+    assert!(view.problem.headline.is_none(), "{:?}", view.problem);
+    assert_eq!(view.problem.queue, 0);
+    assert!(!view.next_actions.is_empty(), "{:?}", view.next_actions);
+}
+
+/// An Issue carries no priority field, so when nothing waits on a verdict the screen reports
+/// counts rather than naming a winner it would have invented.
+#[test]
+fn the_overview_refuses_to_rank_problems_the_engine_left_unranked() {
+    let f = bench();
+    f.issue("I-1", "首屏没有说明哪些来源被预算挡下");
+    f.issue("I-2", "变更记录里没有 actor 的角色");
+
+    let view = views::overview_view(&f.app, &f.project_id).expect("overview");
+
+    assert!(view.problem.headline.is_none(), "{:?}", view.problem);
+    assert_eq!(view.problem.open_issues, 2, "the count is still the honest part");
+    assert_eq!(view.problem.queue, 0);
+    let gap = view
+        .gaps
+        .iter()
+        .find(|gap| gap.label == views::Q_PROBLEM)
+        .expect("the unranked pair is announced, not silently topped");
+    assert!(gap.reason.contains("优先级"), "{gap:?}");
+}
+
+/// §31 says `_none recorded_` and means it: a project with three baselines and no open work has
+/// no next action to show, and that is the answer.
+#[test]
+fn the_overview_announces_an_empty_next_actions_section() {
+    let f = bench();
+    f.charter();
+    f.baseline();
+    f.boundary();
+    f.phase("MVP 收尾");
+
+    let view = views::overview_view(&f.app, &f.project_id).expect("overview");
+
+    assert!(view.next_actions.is_empty(), "{:?}", view.next_actions);
+    assert_eq!(view.gaps.len(), 1, "{:?}", view.gaps);
+    assert_eq!(view.gaps[0].label, views::Q_NEXT);
+    assert!(
+        view.gaps[0].reason.contains("_none recorded_"),
+        "{:?}",
+        view.gaps[0]
+    );
+    assert!(view.gaps.iter().all(|gap| gap.label != views::Q_INTENT));
+}
+
 /// §21's Decisions screen. The lock is the point of showing this at all: §7.4 makes a
 /// user-authored confirmation their own judgement, and the screen must render the flag the fold
 /// raised rather than a label the webview guessed from the actor.
@@ -479,6 +853,184 @@ fn the_evolution_screen_shows_an_aep_as_a_proposal_that_is_not_yet_work() {
     assert_eq!(row.preserved_core, vec!["事件优先", "只折叠已接受事件"]);
     assert!(row.why_not_now.contains("触发"), "{}", row.why_not_now);
     assert!(view.note.contains("禁止 8"), "{}", view.note);
+}
+
+/// §47's five legs, in §47's order — the list is the screen's contract, same as §46's.
+#[test]
+fn the_evolution_screen_names_the_five_legs_and_no_more() {
+    assert_eq!(
+        views::LEGS,
+        [
+            "Architecture Baseline",
+            "Active ADR",
+            "AEP Registry",
+            "Triggered AEP",
+            "Completed Evolution",
+        ]
+    );
+
+    let f = bench();
+    let view = views::evolution_view(&f.app, &f.project_id).expect("evolution");
+    assert_eq!(view.legs, views::LEGS, "the webview reads the legs off the payload");
+}
+
+/// Leg 1 is the baseline the reducer hydrates: every write keeps the previous version (§9's rule,
+/// §11 for baselines), so the screen shows the head and says how long the history is.
+#[test]
+fn the_evolution_screen_shows_the_baseline_the_reducer_hydrates() {
+    let f = bench();
+    f.baseline();
+    f.baseline();
+
+    let view = views::evolution_view(&f.app, &f.project_id).expect("evolution");
+    let baseline = view.baseline.expect("leg 1 has a record");
+
+    assert_eq!(baseline.version, 2, "the version is the record's, not the screen's");
+    assert_eq!(baseline.history, 2, "both rows are still in the store");
+    assert_eq!(baseline.summary, "单体 CLI 折叠事件，桌面壳只画投影");
+    assert_eq!(
+        baseline.layers,
+        vec!["展示层 — 把投影画出来，不解释事件"],
+        "a layer is its name and its responsibility, the way §11 stores it"
+    );
+    assert!(baseline.invariants[0].contains("禁止 4"), "{:?}", baseline.invariants);
+    assert_eq!(baseline.replaceable_parts, vec!["存储实现"]);
+    assert!(
+        view.gaps.iter().all(|gap| gap.label != views::LEGS[0]),
+        "an answered leg is not announced: {:?}",
+        view.gaps
+    );
+}
+
+/// Legs 3, 4 and 5 are one list split by the record's own `AepStatus` — the shell adds no flag,
+/// and §31's `Next Actions` picks the same pair up.
+#[test]
+fn the_evolution_screen_splits_the_aeps_by_their_own_status() {
+    let f = bench();
+    f.aep("aep-wait", "AEP-001", "本地图谱到云端同步");
+    f.aep("aep-live", "AEP-002", "把索引换成向量检索");
+    f.aep("aep-done", "AEP-003", "把 CLI 拆成可复用的库");
+    f.move_aep(
+        "aep-live",
+        vibe_domain::event_catalog::AEP_TRIGGER_DETECTED,
+    );
+    f.move_aep("aep-done", vibe_domain::event_catalog::AEP_COMPLETED);
+
+    let view = views::evolution_view(&f.app, &f.project_id).expect("evolution");
+
+    assert_eq!(view.aeps.len(), 3, "the registry is all of them, once each");
+    assert_eq!(view.dormant.len(), 1, "{:?}", view.dormant);
+    assert_eq!(view.dormant[0].code, "AEP-001");
+    assert_eq!(view.dormant[0].status, "dormant", "a trigger that never fired");
+    assert_eq!(view.triggered.len(), 1, "{:?}", view.triggered);
+    assert_eq!(view.triggered[0].code, "AEP-002");
+    assert_eq!(view.triggered[0].status, "triggered");
+    assert_eq!(view.completed.len(), 1, "{:?}", view.completed);
+    assert_eq!(view.completed[0].code, "AEP-003");
+    assert_eq!(view.completed[0].status, "completed");
+
+    let overview = views::overview_view(&f.app, &f.project_id).expect("overview");
+    assert!(
+        overview
+            .next_actions
+            .iter()
+            .any(|line| line.contains("AEP-002")),
+        "the woken plan is the map's next action too: {:?}",
+        overview.next_actions
+    );
+}
+
+/// Leg 2 cannot be served from the store: an ADR is a document in `docs/adr/`, and a Decision
+/// record has no ADR type on it. The honest answer is the announcement — no table, no second
+/// source of truth, no Decision dressed up as an ADR.
+#[test]
+fn the_evolution_screen_announces_the_adr_leg_it_cannot_read() {
+    let f = bench();
+    EventStore::new(f.app.repos.clone())
+        .append(
+            EventDraft::new(
+                f.project_id.clone(),
+                vibe_domain::event_catalog::DECISION_CONFIRMED,
+            )
+            .user()
+            .subject("decision", "d-adr")
+            .payload(json!({
+                "decisionId": "d-adr",
+                "title": "壳不建 ADR 表",
+                "decision": "ADR 留在 docs/adr/，桌面只读投影",
+            })),
+        )
+        .expect("confirm a decision");
+
+    let view = views::evolution_view(&f.app, &f.project_id).expect("evolution");
+
+    let adr = view
+        .gaps
+        .iter()
+        .find(|gap| gap.label == views::LEGS[1])
+        .expect("leg 2 is announced, never faked");
+    assert!(adr.reason.contains("docs/adr/"), "{adr:?}");
+    assert!(adr.reason.contains("Decision"), "{adr:?}");
+    assert!(view.baseline.is_none(), "leg 1 is empty here too");
+    assert_eq!(view.gaps.len(), 2, "{:?}", view.gaps);
+    assert_eq!(view.gaps[0].label, views::LEGS[0], "the gaps read in §47's order");
+    assert!(view.aeps.is_empty(), "no AEP was written in this fixture");
+    assert!(view.note.contains("禁止 8"), "{}", view.note);
+}
+
+/// A renamed field is a blank screen in the window, not a compile error, so the wire shape the
+/// webview reads is part of what these tests hold still.
+#[test]
+fn the_new_answers_reach_the_webview_under_the_keys_it_reads() {
+    let f = bench();
+    f.charter();
+    f.baseline();
+    f.phase("MVP 收尾");
+    f.aep("aep-1", "AEP-001", "本地图谱到云端同步");
+
+    let overview = serde_json::to_value(views::overview_view(&f.app, &f.project_id).expect("overview"))
+        .expect("serialize overview");
+    for key in [
+        "questions",
+        "intent",
+        "phase",
+        "recent",
+        "problem",
+        "drift",
+        "nextActions",
+        "gaps",
+    ] {
+        assert!(overview.get(key).is_some(), "no `{key}` in {overview}");
+    }
+    assert_eq!(overview["questions"].as_array().map(Vec::len), Some(6));
+    assert_eq!(
+        overview["intent"]["originalProblem"],
+        "决定散落在聊天记录里，没人说得清项目走到了哪一步"
+    );
+    assert_eq!(overview["phase"]["declared"], json!(true));
+    assert_eq!(overview["phase"]["phase"], "MVP 收尾");
+    assert_eq!(overview["drift"]["drifting"], json!(false), "a flat ⑤ still rides the wire");
+    assert!(overview["problem"]["headline"].is_null(), "nothing waits on a verdict");
+
+    let evolution =
+        serde_json::to_value(views::evolution_view(&f.app, &f.project_id).expect("evolution"))
+            .expect("serialize evolution");
+    for key in [
+        "legs",
+        "baseline",
+        "aeps",
+        "triggered",
+        "completed",
+        "dormant",
+        "gaps",
+    ] {
+        assert!(evolution.get(key).is_some(), "no `{key}` in {evolution}");
+    }
+    assert_eq!(evolution["legs"].as_array().map(Vec::len), Some(5));
+    assert_eq!(evolution["baseline"]["replaceableParts"], json!(["存储实现"]));
+    assert_eq!(evolution["dormant"][0]["whyNotNow"], "没有任何触发条件成立");
+    assert_eq!(evolution["triggered"].as_array().map(Vec::len), Some(0));
+    assert_eq!(evolution["gaps"][0]["label"], "Active ADR", "leg 2 is the announced one here");
 }
 
 /// §14 item 7 wanted a click on an Issue, and the shell is where the hand lands. The reference

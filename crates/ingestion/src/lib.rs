@@ -13,6 +13,7 @@
 //!                                             │
 //!                                             ├──▶ SignalJudge ──▶ EventStore        (§27, §15)
 //!                                             └──▶ SyncCursor (per source)          (§51)
+//! browser push (§34/§35) ─▶ NativeHost ─┤  (the same three rows, from a live page)
 //! git log / file tree ─▶ GitFacts / FileScan ─▶ GIT_COMMIT / FILE_CHANGED + Artifact (§39)
 //! ```
 //!
@@ -27,6 +28,7 @@ pub mod adapters;
 pub mod file_scan;
 pub mod git_facts;
 pub mod near_duplicate;
+pub mod native_messaging;
 pub mod normalizer;
 pub mod pipeline;
 

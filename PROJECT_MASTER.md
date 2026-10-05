@@ -915,8 +915,8 @@ V1
 
 CURRENT DEVELOPMENT STATE:
 V1 Core Loop Implemented / CLI Workbench Runnable / Hardening Done / MCP Read Surface Shipped /
-Desktop Shell Shipped (ADR-029) / Browser Extension + Native Messaging Owed /
-MCP Inbound Capture Owed (ADR-028)
+Desktop Shell Shipped (ADR-029) / Browser Host + MV3 Extension Shipped (ADR-031) /
+V1 Re-audited Item-by-Item (ADR-032, ADR-033) / MCP Inbound Capture Owed (ADR-028)
 
 LAST COMPLETED:
 - Rust monorepo：`crates/domain|core|storage|state-engine|guard-engine|context-engine|ingestion|security|search|mcp-server` + `apps/cli`
@@ -969,26 +969,89 @@ LAST COMPLETED:
   （`a_snapshot_argument_is_the_baseline_and_never_the_project`）；不存在的基线是拒绝，不是"跟空比"
 - ADR 介质变更：19 份 `docs/adr/ADR-*.md` 汇总为单页 `docs/adr/ADR-总览.html`（措辞未改，逐行核验 669 行内容无缺失、19 锚点、35 处交叉链接、0 断链），此后 ADR 直接在该页追加，任务报告也在该页「四、任务报告」挂链
 - §59 / §60 **预算**：纯折叠 ≤250 ms（实测 ~40 ms）、整条链 ≤20 s 的 hang/O(n²) tripwire（实测 ~6 s）；其余是工作量断言；成本规则由 12 个 manifest 的依赖扫描钉住（ADR-027，2026-10-06 起把 `apps/desktop` 也算进去——GUI 想开一个网络从此是一条失败测试而不是 review 意见）
-- 测试：`cargo test --workspace` = 265 passed / 0 failed / 1 ignored（Keychain 需 opt-in），构建零 warning。
-  三层：库（golden + 各 crate 套件）、真二进制（`cli_e2e` 19 条）、桌面壳视图（`apps/desktop/tests/views.rs` 12 条）
+- §34/§35 **浏览器门**：`crates/ingestion/src/native_messaging.rs`（帧编解码 + `HostPolicy` + `NativeHost` +
+  `HostManifest`）与 `apps/cli/src/host.rs`（`wp host serve` / `wp host manifest`）。四个动词
+  `hello` / `capture` / `open` / `inject`，一问一答、不监听、不开端口；`open` 与 `inject` 答的是**给扩展的指令**
+  （`{action:"openTab"}` / `{action:"fillComposer",text,send:false}`），于是 §7.8 写在协议里而不是写成一个可商量的默认值。
+  §35 的五项检查各占一个拒绝前缀（`origin` / `command` / `payload` / `size` / `project scope rejected`），
+  一条坏帧只结束那一帧（§62：静默才是失败）。浏览器推来的线程走 `IngestPipeline::ingest_messages`——
+  不是第八个适配器：适配器是**读者**，活的会话在浏览器那一侧是被推的一方（ADR-031）
+- §34 的**扩展半边**：`apps/extension/`（MV3，零依赖、零构建步骤，**不是** workspace 成员，所以 §60 的
+  12 份 manifest 巡检不必改写）。`background.js` 在 native messaging **之前**做完 §35 要求的校验
+  （协议版本、origin 白名单、已知 command、payload 形状含未知字段拒绝、245760 字节硬上限），
+  `content.js` 只读页面与写输入框、永不提交（不派发 Enter、不 `requestSubmit`、不点发送键），
+  `popup.js` 的状态区逐字显示宿主的拒绝句子。generic web 的"用户授权"是弹窗那次点击签发的一次性同意凭据
+  （60 秒、用过即废、只存在 worker 内存里）
+- 两边对接时改掉的两处：§35 的 origin 检查有**两副面孔**（`capture` / `inject` 必须报页面 origin；
+  `hello` / `open` 不经手页面材料，可以报扩展自己的 `chrome-extension://<id>`——那枚 id 正是 Chrome 按
+  `allowed_origins` 已经核过的东西），以及扩展把 `capture` 的 `{action:"captured"}` 误报成"不认的动作"。
+  两处都就地修订进 ADR-031，`apps/extension/README.md` 的协议表同轮改写（那条维护费是 ADR-031 自己写的）
+- §58 的 E2E 那一行第一次真的跑通：`cli_e2e` 第 20 条 `a_browser_session_round_trips_through_the_native_host`
+  用**自己重写的一份编解码**驱动真二进制（不复用 crate 的 codec——共享 helper 会替宿主隐瞒它自己发出去的字节），
+  走完 Browser → Native → Event → State → Map → Pack → open / inject，并在同一轮里撞上 §53：fixture 项目
+  `allowCloudModel=false`，所以 `--to chatgpt` 的包被**整包拒绝**，链路上用的是"不声明去处"的那份包
+- **第五轮：不按前四轮的自报验收，把 §21 八段 / §14 十条 / §62 七道门逐条回代码重查**。结果分三类——
+  真缺的补、已做却没有测试声称过的补测试、账上写过头的**改账**。查出并修掉一个会吃证据的真缺陷
+  （下一条），补掉两个"有命令不等于有屏幕"的空壳屏（再下一条），其余四处是文档说过头（见 ADR-013/016/020/022 的
+  就地修订）。**本轮不新增任何 V1 之外的功能**：§21 的条目之外一件都没做，禁止 8 同样管着"补开发"这一类轮次
+- §52 **L2 的键少了 role（ADR-033，migration v4）**：`(conversation_id, content_hash)` 让"用户说继续、
+  助手也答继续"吞掉第二条，同一句话隔一小时再说一遍也吞——去重层在做它不该做的事：**删证据**。
+  role 进键（`idx_messages_l2`），**时间窗仍然不进键**：§51 要求重推幂等，而来源时间戳可能缺失或抖动，
+  "同一句话后来又说了一遍"归 L3 提示、提示永不删除（ADR-024）。SQLite 不肯 drop 内联 UNIQUE 背后的自动索引，
+  所以与 ADR-013 的 v3 同骨架：重建表而不是改表。第一轮那条把缺陷钉成需求的断言同轮改掉
+- §50 **`context_packs` 表确实不存在，而这是一个决定（ADR-032）**：包按需编译，编译一次留一行 `audit_logs`
+  （`produced_ref` / `read_refs` / `redacted_refs` / 目标 agent），成品以文件出去（`wp context build --out`、
+  `.projectpack`）。再存一张表等于把项目事实抄第二份（禁止 4）；重看的触发条件写在 ADR-032 里，
+  届时的形状是 `evidence` 里一份内容地址化的工件，不是新的一列
+- **§46 总览与 §47 演进两屏这次真的有内容**：上一轮账上写"八个屏幕全部有对应命令与视图构造器"，
+  核对下来那两个构造器是空壳——§46 要求的六个问题没人回答，§47 要求的五项里只有 AEP 有数据。
+  现在总览逐问作答（意图 / 阶段 / 最近三条 / 最大问题 / 有无偏航 / 下一步取自编译好的地图），
+  **答不出的那一问由 `gaps` 自己说出来**（ADR-011 的老规矩）， kinds 只做计数不做重排；
+  演进屏给出架构基线与按状态分组的 AEP（触发 / 完成 / 休眠）。**ADR 那一行不建表**：它是
+  `docs/adr/` 里的文档，屏幕指过去并在 `gaps` 里说明——为它新建持久生产者就是第二个状态来源（禁止 4，
+  与 ADR-032 同一套理由）
+- **四处"已做但没被测试声称过"补上声称**：milestone 的 planned→reached（且 reached 不许顺手改名）、
+  §28 解析阶梯本身（1.0 / 0.95 / 0.70 与 0.90 的自动合并阈值，新建 `crates/ingestion/tests/resolution.rs`）、
+  §14 第 10 项"结果回到时间线"（`a_second_agent_turn_re_enters_the_timeline`：真推一批**新**材料，
+  断言 seq 越过旧的高水位、时间线/地图/diff/重新编译的包都动了——此前所有 import 测试证明的都是反面"重推不新增"）、
+  §39 的 `file_deleted`（真目录里真删一个文件：一个 `ARTIFACT_DELETED`、行被标记而非删除、第三遍安静、
+  不产生任何结论）
+- **改掉的账（三处写过头）**：ADR-022 的 `payload.change` 从不发 `deleted`（删除走 `ARTIFACT_DELETED`）、
+  引用的 `FileScan::diff` 其实是 `FileScan::run`、"这些事件一律不折叠"只对 git 那两个信号成立——
+  文件信号确实写 artifact 行而 artifacts 在 `state_hash_of` 里，**所以该条标题从"move no state"改成
+  "produce no verdict"**：监听信号不许触碰的是结论，不是文件行。另：ADR-013 引用 §52 键的句子随 ADR-033 改写，
+  ADR-016 记下 §29 七种 Inbox 里两种**按设计**没有持久生产者（merge candidate 属于那一次 ingest 运行，
+  unverified claim 在地图里说话），给它们建表需要 §16 没列的事件类型，禁止 8 不许无触发地先建
+- `crates/core/src/ports.rs` 的 `insert_messages` 契约文档同轮改为"content hash **per role**"——
+  端口注释也是契约的一部分，它比实现慢一拍就会误导下一个实现者
+- 测试：`cargo test --workspace` = 300 passed / 0 failed / 1 ignored（Keychain 需 opt-in），构建零 warning。
+  四层：库（golden + 各 crate 套件，`native_messaging` 13 条、新建 `resolution` 3 条、`map_and_snapshot` 10 条、
+  `integration` 15 条）、真二进制（`cli_e2e` 22 条）、桌面壳视图（`apps/desktop/tests/views.rs` **23 条**，
+  比上一轮翻倍：§46 六问与 §47 五段各自有断言，末一条 `the_new_answers_reach_the_webview_under_the_keys_it_reads`
+  把 Rust 载荷的键与 `app.js` 读的键逐个对上——V1-D 对接时找出的两处不一致就是这类断言该拦住的东西）、
+  扩展侧只有 `node --check`——V1 不为它装 JS 测试框架（§60 的成本规则），协议的断言全部在 Rust 那一侧
 
 CURRENT BLOCKER:
-None. V1-E shipped in the round after it was queued, and it found a defect in the event chain rather
-than in itself — ADR-030 is that record. The next round (V1-D browser extension + Native Messaging)
-needs a browser session and a host registration, which is the first time `inject` / `open` get a real
-implementation instead of the `Ok(None)` default; nothing in the core blocks it, and §35's five
-validations (origin / command / payload / size / project scope) are the round's own scope.
+None. V1-D 的那扇门这一轮建完了，两侧是对着写的：Rust 宿主 + MV3 扩展，对接时找出的两处不一致已就地
+修订进 ADR-031。剩下的唯一 V1 欠项是 ADR-028 的入站 MCP 采集——它不缺代码位置，缺的是一个真的、值得
+工作台主动去读的 agent 会话源；§13.2 没要求 V1 去连第三方进程，禁止 8 也不允许在没有触发条件时先装一个
+async runtime。仍未由机器保证的只有浏览器那一侧的**渲染**：扩展没有装进真 Chrome 跑过（本轮验证到的范围是
+`node --check` 过三份 JS、`popup.html` 的 12 个 id 与 `popup.js` 逐个对上、`wp host manifest` 落出的记录与
+wrapper 逐字看过、以及真 `wp host serve` 收到一帧 `chrome-extension://` 的 `hello` 并回了能力清单）。
+MV3 的页面结构识别、输入框定位与 §7.8 的"填而不发"要在人的浏览器里再看一次——这与 ADR-029 给桌面壳留的
+那条（webview 渲染仍是手工核对）是同一类残留，不是新的缺口。
 
 NEXT IMMEDIATE TARGET:
-V1-D Capture 的剩下两件（§34 浏览器扩展 MV3 + §35 Native Messaging host，`apps/extension` 新 workspace
-成员）。这一轮才是 `AgentAdapter::open` / `inject` 第一次真实存在的时候：§37 的能力模型只要求读到
-"能注入"这个声明，§38 要求 Generic Web 与 ChatGPT Web 两个面都能收；入站方向用现成的
-`IngestPipeline::ingest_messages`，即聊天内容落地成 Event 与证据，**不直接写面板、map 或 Project State**
-（禁止 4 / 禁止 9、ADR-022、ADR-028 同一套说法）。§35 的校验是这一轮的验收点，不是可选项。
-还挂在账上的一件：ADR-028 的入站 MCP 采集（工作台主动去读 agent 那边的会话）。§14 第 7 项"点击某个 Issue"
-本轮已经有了：偏航屏与检索屏的行可以直接带进上下文屏，`--select` 在 CLI 也第一次有了自己的测试。
+V1 只剩一件挂在账上的事：**ADR-028 的入站 MCP 采集**——工作台主动去读 agent 那边的会话，读回来的仍然只是
+证据，落地成 Event 再由 fold 更新面板（禁止 4 / 禁止 9，与这一轮的浏览器推送同一套说法）。它的触发条件、
+`McpClientAdapter` 七个动词的映射，以及"必须 stdio 阻塞、不许为它引 async runtime"这条由 §60 决定的约束，
+都写在 ADR-028 里；除它之外 §7.1 的 V1-A…V1-H 八段没有一个还留着没写的代码。
+另一件不需要新代码、但下一轮该做的：**在真 Chrome 里装一次这个扩展**，把 §二 那两行 `mkdir` / `cp` 走到底，
+看 `capture` 在一个真的 ChatGPT / Claude 会话上采到几轮、`inject` 把包写进了哪个输入框。桌面壳留下的那类残留
+（ADR-029：webview 渲染手工核对）在扩展这一侧一模一样。
 §14 判定：第 1、4、5、7、8、9、10 项在核心、CLI、MCP 读面与桌面壳上都已具备；第 2、3、6 项可从 CLI 走到；
-"发送进另一个 Agent"仍缺真实传输（V1-D 这一轮补）。
+"发送进另一个 Agent"这一轮有了真实的**输送**通道（`open` / `inject` 到浏览器，永远 `send:false`），
+而 `AgentAdapter::inject()` 对已交付适配器仍返回 `Ok(None)`——ADR-031 把这一次记成结论而不是缺口。
 
 完整阶段记录：docs/RECORDS.md
 ```
@@ -1184,13 +1247,22 @@ NEXT IMMEDIATE TARGET
 V1-A Foundation ✅
 V1-B Project Baseline ✅
 V1-C State Engine ✅
-V1-D Capture ◐（核心 + CLI + §38.5 的出向 MCP 只读接口已做完；
-              还欠两半：浏览器扩展与 Native Messaging，以及**入站** MCP 采集——
-              工作台主动去读 agent 那边的会话。触发条件与届时形状记在 ADR-028，
-              上一版把这行整体标成 ✅ 是把 §38.5 只读了一种）
+V1-D Capture ◐（核心 + CLI + §38.5 的出向 MCP 只读接口 + §34/§35 的浏览器门（`wp host serve`
+              与 `apps/extension` 的 MV3 扩展，ADR-031）已做完；还欠的是**入站** MCP 采集——
+              工作台主动去读 agent 那边的会话。触发条件与届时形状记在 ADR-028。
+              上一版把这行整体标成 ✅ 是把 §38.5 只读了一种；这一轮之后，欠的那半换了名字，
+              不再是"扩展没建"。
+              第五轮在这段里修掉一个会吃证据的缺陷：§52 的 L2 键原来只有 content hash，
+              于是"用户说继续 / 助手也答继续"会被吞掉一条——role 现在进键（ADR-033，migration v4，
+              重建表），时间窗仍然不进键（§51 的幂等靠身份而不是靠时间戳，"同一句话后来又说一遍"
+              归 L3 提示）。同轮补上 §39 的删除信号测试：真目录里真删一个文件，
+              一个 `ARTIFACT_DELETED`、行被标记而非删除、第三遍安静、不产生任何结论）
 V1-E Workbench ✅（`apps/desktop`：Tauri 2 只做已编译视图的展示，第一屏 diff →
-               用户挑哪些变动生效 → map。§21 列的八个屏幕全部有对应命令与视图构造器；
-               webview 本身的渲染仍是手工核对，写在 ADR-029 的后果里）
+               用户挑哪些变动生效 → map。§21 列的七个屏幕全部有内容而不只是有命令——第五轮核对时发现
+               Overview 与 Evolution 的构造器是空壳（"有命令不等于有屏幕"），§46 的六问与 §47 的五项
+               现在逐条作答，答不出的那一问由屏幕自己在 `gaps` 里说原因（ADR-011 的规矩）。
+               ADR 那一项**指出去而不建表**：它是 `docs/adr/` 的文档，为它造持久生产者就是第二个状态来源
+               （禁止 4，与 ADR-032 同一套理由）。webview 本身的渲染仍是手工核对，写在 ADR-029 的后果里）
 V1-F Context Engine ✅
 V1-G Guard ✅
 V1-H Hardening ✅（Export / Backup+Restore / Audit / Adapter Health / 监听 / 性能预算 /

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>构览 Codlas · V1 第五轮开发报告（2026-10-06）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --ink:#e6e9ef; --muted:#9aa4b2;
+    --line:#252b35; --ok:#3fb950; --warn:#d29922; --no:#f85149; --accent:#58a6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif}
+  main{max-width:1080px;margin:0 auto;padding:40px 24px 96px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+  h2{font-size:19px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+  p{margin:10px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12.5px;color:var(--muted)}
+  .badge b{color:var(--ink);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h4{margin:0 0 4px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .card .v{font-size:22px;font-weight:650}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel);color:var(--muted);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+  td code,li code,p code{background:#1c2230;border:1px solid var(--line);border-radius:4px;
+    padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ok{color:var(--ok);font-weight:600}
+  .warn{color:var(--warn);font-weight:600}
+  .no{color:var(--no);font-weight:600}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid #24313f}
+  a:hover{border-bottom-color:var(--accent)}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:4px 0}
+  pre{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .callout{border-left:3px solid var(--accent);background:var(--panel);
+    padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  .callout.no{border-left-color:var(--no)}
+  nav{position:sticky;top:0;background:rgba(15,17,21,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin:-40px -24px 28px;z-index:2}
+  nav .in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+  nav a{border:0;color:var(--muted)}
+  nav a:hover{color:var(--accent)}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+
+<nav><div class="in">
+  <a href="#method">核对方法</a>
+  <a href="#findings">四处发现</a>
+  <a href="#adrs">两条新决定</a>
+  <a href="#ledger">改掉的账</a>
+  <a href="#screens">§46 / §47 两屏</a>
+  <a href="#tests">新增测试</a>
+  <a href="#stages">V1-A…H</a>
+  <a href="#accept">§14 十条</a>
+  <a href="#gates">§62 七门</a>
+  <a href="#open">仍然没做</a>
+  <a href="#run">怎么跑</a>
+</div></nav>
+
+<h1>V1 第五轮开发报告 · 不按自报验收，把整个 V1 重查一遍</h1>
+<p class="sub">2026-10-06 · 同一天的第五轮。本轮没有新增任何 V1 之外的功能：产出一条真缺陷的修复、一条决定的补记、
+两屏的实际内容、四处缺失的测试声称，以及三处写过头的账。</p>
+
+<div class="badges">
+  <span class="badge">阶段 <b>V1 第五轮 · 清点与补齐</b></span>
+  <span class="badge">ADR <b>25 条</b>（新增 032 / 033，就地修订 013 / 016 / 020 / 022）</span>
+  <span class="badge">缺陷 <b>1 真缺陷</b>（§52 L2 键漏了 role）</span>
+  <span class="badge">屏幕 <b>§46 / §47 由空壳转为作答</b></span>
+  <span class="badge">V1 欠项 <b>1 项代码之外</b>（ADR-028 入站采集）</span>
+</div>
+
+<h2 id="scope">一、本轮范围：问题不是"下一步做什么"</h2>
+<p>前四轮的记录都是<strong>当轮自报</strong>：写了什么、测到什么、账上就记什么。本轮把输入换成一个问题——
+<strong>有没有哪一行是拿"应该做了"当证据记上去的？</strong>核对对象是三份文档里所有可核的清单：
+<code>PROJECT_MASTER.md</code> §21 的八段五十四项、<code>V1_DEVELOPMENT.md</code> §14 的十条验收、
+§62 的七道发布门。核对方式只有一种：<strong>回到代码与测试文件</strong>，不读上一轮的报告，也不读 §20 的自述。</p>
+<p>结果分三类，处理方式也各不相同：</p>
+<table>
+  <thead><tr><th>类别</th><th>判据</th><th>本轮处理</th></tr></thead>
+  <tbody>
+    <tr><td>真缺</td><td>文档要求一个行为，代码里没有任何东西产生这个行为</td>
+      <td><span class="no">补</span>：§52 的 L2 键、§46/§47 的两屏内容</td></tr>
+    <tr><td>已做，但没有测试声称过</td><td>代码路径完整，任何测试名里都找不到它</td>
+      <td><span class="warn">补测试</span>：milestone、§28 阶梯、§14 第 10 项、§39 的删除信号</td></tr>
+    <tr><td>账写过头</td><td>文档的措辞比代码能保证的强</td>
+      <td><span class="ok">改账</span>：ADR-013 / ADR-016 / ADR-020 / ADR-022 就地修订</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <strong>为什么"已做但没被声称"要单独算一类：</strong>这一类不会让任何测试变红。
+  它的意思是——下一个人改坏这条路径时，没有一个人会被告知。本轮查出的四处里有两处属于这里。
+</div>
+
+<h2 id="method">二、核对方法与两处排除</h2>
+<p>逐项核对的同时，也把"看起来像缺口"的东西按同样标准<strong>排除</strong>掉，避免把清点变成新一轮的过度记录：</p>
+<table>
+  <thead><tr><th>疑似缺口</th><th>核对结果</th><th>依据</th></tr></thead>
+  <tbody>
+    <tr><td>§53 的系统 Keychain 似乎没默认启用</td><td><span class="ok">已记为决定，不是缺</span></td>
+      <td>ADR-017：Keychain 是显式 opt-in，未同意时落 0600 文件库，值仍不进 SQLite 明文</td></tr>
+    <tr><td>§40 的 CJK 检索似乎偏弱</td><td><span class="ok">已在账上说明</span></td>
+      <td>词法层用字符 bigram；语义/向量归 AEP-002，未触发（禁止 8）</td></tr>
+    <tr><td>Milestone 似乎没有入口</td><td><span class="warn">可达但无人声称</span></td>
+      <td>目录、折叠、物化、渲染四路俱在，缺的是一条测试 → 本轮补，不改状态</td></tr>
+    <tr><td>§29 的 Inbox 似乎少两种</td><td><span class="warn">按设计没有持久生产者</span></td>
+      <td>建表需要 §16 未列的事件类型 → 记进 ADR-016，而不是把它做出来</td></tr>
+  </tbody>
+</table>
+
+<h2 id="findings">三、查出的四处，以及为什么只有一处需要写新代码</h2>
+<div class="grid">
+  <div class="card"><h4>真缺陷</h4><div class="v no">1</div><p class="sub">§52 L2 键漏 role，去重层在删证据</p></div>
+  <div class="card"><h4>空壳屏</h4><div class="v warn">2</div><p class="sub">§46 总览、§47 演进：命令已注册，视图没内容</p></div>
+  <div class="card"><h4>无人声称</h4><div class="v warn">4</div><p class="sub">milestone / §28 阶梯 / §14.10 / §39 删除</p></div>
+  <div class="card"><h4>改账</h4><div class="v ok">4</div><p class="sub">ADR-013 / 016 / 020 / 022</p></div>
+</div>
+
+<h3>§52 的 L2 键少了 role：一个会吃掉证据的去重层</h3>
+<p>基线键是 <code>(conversation_id, content_hash)</code>。于是：</p>
+<ul>
+  <li>用户说"继续"、助手也答"继续"——<strong>第二条被静默丢弃</strong>；</li>
+  <li>同一句话一小时后说第二遍——<strong>同样被丢弃</strong>；</li>
+  <li>而第一轮有一条测试 <code>duplicate_messages_are_dropped_on_reingest</code> 把这个行为<strong>钉成了需求</strong>。</li>
+</ul>
+<p>去重层的职责是阻止同一份材料被重复计数，它没有权力删内容：捕获来的材料是证据（§17、§7.3）。
+修法与代价见 <a href="docs/adr/ADR-总览.html#adr-033">ADR-033</a>；
+<strong>时间窗仍然不进键</strong>——§51 要求重推幂等，而来源时间戳可能缺失或抖动，
+"同一句话后来又说了一遍"归 L3 提示，提示永不删除（<a href="docs/adr/ADR-总览.html#adr-024">ADR-024</a>）。
+SQLite 不肯 drop 内联 UNIQUE 背后的自动索引，所以与
+<a href="docs/adr/ADR-总览.html#adr-013">ADR-013</a> 的 v3 同一副骨架：<strong>migration v4 重建表</strong>
+（<code>messages_dedup_key_includes_role</code>），而不是 ALTER。</p>
+
+<h3>§50 的 <code>context_packs</code> 表不存在——这是决定，不是漏建</h3>
+<p>§50 的库最小清单里点名的表，逐张对上了 <code>crates/storage/src/schema.rs</code>，只有 <code>context_packs</code> 没有。
+包是<strong>按需编译</strong>的：编译一次留一行 <code>audit_logs</code>（<code>produced_ref</code> = <code>context_pack:&lt;id&gt;</code>、
+<code>read_refs</code>、<code>redacted_refs</code>、目标 agent），成品以文件出去（<code>wp context build --out</code>、<code>.projectpack</code>）。
+再存一张表等于把项目事实抄第二份（§19 禁止 4）。重看的触发条件与届时的形状写在
+<a href="docs/adr/ADR-总览.html#adr-032">ADR-032</a>。</p>
+
+<h2 id="adrs">四、两条新决定</h2>
+<table>
+  <thead><tr><th>编号</th><th>决定</th><th>为什么值得单独记</th></tr></thead>
+  <tbody>
+    <tr><td><a href="docs/adr/ADR-总览.html#adr-032">ADR-032</a></td>
+      <td>编译出来的 Context Pack 只被审计、不被存储：§50 的 <code>context_packs</code> 表不存在</td>
+      <td>§50 是唯一一处文档与库不同步的地方，不写下来下一轮会"照着文档补一张表"，那才是真事故</td></tr>
+    <tr><td><a href="docs/adr/ADR-总览.html#adr-033">ADR-033</a></td>
+      <td>§52 的 L2 是<em>按角色</em>的内容哈希：一个去重层不许删除证据</td>
+      <td>修的是一个已经吃掉材料的产品缺陷，而且有一条旧测试站在缺陷那一边</td></tr>
+  </tbody>
+</table>
+
+<h2 id="ledger">五、改掉的账：三处写过头</h2>
+<table>
+  <thead><tr><th>条目</th><th>原来的说法</th><th>代码里的事实</th></tr></thead>
+  <tbody>
+    <tr><td><a href="docs/adr/ADR-总览.html#adr-022">ADR-022</a></td>
+      <td><code>payload.change ∈ {created, modified, deleted, baseline}</code>；引用 <code>FileScan::diff</code>；
+        "这些事件一律不折叠，不动任何状态"</td>
+      <td>删除从来不走 <code>FILE_CHANGED</code>，它发 <code>ARTIFACT_DELETED</code>；那个方法叫 <code>FileScan::run</code>；
+        而"不折叠"只对 <code>GIT_BRANCH_CHANGED</code> / <code>GIT_STATUS_CHANGED</code> 成立——文件信号确实
+        upsert / mark artifact 行，而 artifacts 在 <code>state_hash_of</code> 里。
+        <strong>标题因此由"move no state"改为"produce no verdict"</strong>：不许触碰的是<em>结论</em>，
+        不是文件行——禁止 9 的真意就在这里</td></tr>
+    <tr><td><a href="docs/adr/ADR-总览.html#adr-013">ADR-013</a></td>
+      <td>引用 §52 的 L2 键作为约束</td>
+      <td>键已经变宽（随 ADR-033），约束句同轮改写并指向 migration v4</td></tr>
+    <tr><td><a href="docs/adr/ADR-总览.html#adr-016">ADR-016</a></td>
+      <td>§14 十条"在第一轮以核心 + CLI 层级跑通"；§29 的七种 Inbox 不置一词</td>
+      <td>第 10 项此前只有反面证明；本轮它有了自己的测试。§29 的 merge candidate 与 unverified claim
+        <strong>按设计</strong>没有持久生产者，这一条现在写进了 Deferred 清单而不是留成沉默</td></tr>
+    <tr><td><a href="docs/adr/ADR-总览.html#adr-020">ADR-020</a></td>
+      <td>测试层四层、<code>cli_e2e</code> 20 条、<code>views.rs</code> 12 条</td>
+      <td>新增 <code>crates/ingestion/tests/resolution.rs</code> 一层解析阶梯测试；
+        e2e 与视图层条数随本轮上升（见下表）</td></tr>
+  </tbody>
+</table>
+<p class="sub">另有一处非文档的账：<code>crates/core/src/ports.rs</code> 的 <code>insert_messages</code> 契约注释还在说
+"content hash within the conversation"。端口注释也是契约——它比实现慢一拍就会误导下一个实现者，同轮改为
+"content hash <strong>per role</strong>"，并写明键里为什么没有时间戳。</p>
+
+<h2 id="screens">六、§46 与 §47：从"有命令"到"有屏幕"</h2>
+<p>上一轮的账写的是"§21 列的八个屏幕全部有对应命令与视图构造器"。这句话是真的，但它遮住了一个事实：
+那两个构造器返回的是空壳。<strong>有命令不等于有屏幕</strong>——这是本轮方法上最值得留下的一条。</p>
+<table>
+  <thead><tr><th>§46 总览必答</th><th>现在从哪来</th><th>答不出时</th></tr></thead>
+  <tbody>
+    <tr><td>最初目标是什么</td><td>Charter 的 <code>originalProblem</code> / <code>coreValue</code>（版本化、用户锁定）</td>
+      <td rowspan="6">写进 <code>gaps</code>，由屏幕自己说出来（<a href="docs/adr/ADR-总览.html#adr-011">ADR-011</a> 的空 section 自己声明为空）</td></tr>
+    <tr><td>当前阶段是什么</td><td><code>project.currentPhase</code></td></tr>
+    <tr><td>最近发生了什么</td><td>最近三条已接受事件，取自时间线构造器本身（不另写一套排序）</td></tr>
+    <tr><td>当前最大问题是什么</td><td>打开的 Issue，按折叠顺序——计数不重排</td></tr>
+    <tr><td>有没有偏航</td><td>guard-engine 的六条词法规则命中数</td></tr>
+    <tr><td>下一步是什么</td><td>直接取编译好的 PROJECT_MAP 的 <code>Next Actions</code>，不在屏幕里再推一次</td></tr>
+  </tbody>
+</table>
+<table>
+  <thead><tr><th>§47 演进屏五项</th><th>处理方式</th></tr></thead>
+  <tbody>
+    <tr><td>Architecture Baseline</td><td>取物化状态里的 <code>baseline</code>（summary / layers / invariants / replaceableParts / version）</td></tr>
+    <tr><td>AEP Registry</td><td><code>state.aeps</code> 全量，逐份带 §32 的全部字段</td></tr>
+    <tr><td>Triggered AEP</td><td>按 <code>AepStatus</code> 分组：触发 / 进行中单列，让"该改了"从列表里站出来</td></tr>
+    <tr><td>Completed Evolution</td><td>同上分组，完成的与休眠的各归一处；<strong>计数而非重排</strong></td></tr>
+    <tr><td>Active ADR</td><td><span class="warn">这一项指出去，不建表</span>：ADR 是 <code>docs/adr/</code> 里的文档，
+      屏幕为它新建一个持久生产者就是第二个状态来源（禁止 4，与 <a href="docs/adr/ADR-总览.html#adr-032">ADR-032</a> 同一套理由），
+      于是它出现在 <code>gaps</code> 里而不是列表里</td></tr>
+  </tbody>
+</table>
+<p>两屏的 Rust 视图构造器与 <code>ui/app.js</code> 的渲染同时改：Rust 侧给字段，JS 侧把字段摆出来，
+两边都过视图层测试——<code>apps/desktop/tests/views.rs</code> 不启动 webview 就能驱动整条读路径
+（<a href="docs/adr/ADR-总览.html#adr-020">ADR-020</a> 的 lib/bin 切开）。
+webview 的<em>像素</em>仍是人工核对，这条限制与 ADR-029 给桌面壳留的那条是同一句，本轮没有把它说小。</p>
+
+<h2 id="tests">七、新增与改写的测试</h2>
+<table>
+  <thead><tr><th>文件</th><th>测试名</th><th>它钉住什么</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="3"><code>crates/storage/tests/integration.rs</code></td>
+      <td><code>the_same_text_under_two_roles_is_two_messages</code></td>
+      <td>同一个 content_hash、不同 role ⇒ 两条都在；顺带断言"字节相同所以哈希本身分不开"</td></tr>
+    <tr><td><code>the_same_text_twice_in_one_role_is_still_one_duplicate</code></td>
+      <td>键只宽到 role：同一角色说两遍仍是一条，间隔九分钟也不例外——那是 L3 提示的活</td></tr>
+    <tr><td><code>a_database_from_the_previous_schema_upgrades_its_message_key</code></td>
+      <td>手工按 v1–v3 建一份旧库再打开：行留着、<code>idx_messages_l2</code> 出现、回声写得住</td></tr>
+    <tr><td rowspan="3"><code>crates/ingestion/tests/resolution.rs</code>（新建）</td>
+      <td><code>an_explicit_id_and_an_exact_title_are_the_only_two_ways_to_merge</code></td>
+      <td>1.0 显式 id / 0.95 同标题，且只有这两档过 <code>auto_mergeable()</code>（阈值 0.90）</td></tr>
+    <tr><td><code>a_reordered_name_is_a_candidate_and_never_an_auto_merge</code></td>
+      <td>"auth module" ⇄ "module auth" 落到 0.70 "title overlap"，<strong>不自动合并</strong></td></tr>
+    <tr><td><code>a_name_nobody_used_yet_resolves_to_nothing</code></td>
+      <td>阶梯的地板：没人用过的名字解析为"无"，而不是最像的那一条</td></tr>
+    <tr><td><code>crates/state-engine/tests/map_and_snapshot.rs</code></td>
+      <td><code>a_milestone_is_planned_until_a_reach_event_moves_it</code></td>
+      <td>planned→reached 两步、地图行随之改写、缓存里仍只有 <strong>1</strong> 条 milestone，
+        且 reached 事件不带标题时<strong>不许顺手改名</strong></td></tr>
+    <tr><td><code>crates/ingestion/tests/watch.rs</code></td>
+      <td><code>a_vanished_file_leaves_a_removal_signal_and_no_new_verdict</code></td>
+      <td>真目录真删：一个 <code>ARTIFACT_DELETED</code>、<code>hash</code> 为空、相对路径正斜杠（§22）、
+        artifact 行被<strong>标记</strong>而非删除、第三遍安静、任务/问题/决策/提案/偏航一个都没动</td></tr>
+    <tr><td rowspan="2"><code>apps/cli/tests/cli_e2e.rs</code></td>
+      <td><code>a_second_agent_turn_re_enters_the_timeline</code></td>
+      <td>§14 第 10 项第一次被正面证明：推一批<strong>新</strong>材料（3 条 / 0 重复），断言 seq 越过旧高水位、
+        时间线出词、地图 Open Issues 恰好多一行、两份状态哈希都变、diff 列出新增、重编译的包带上 agent 自己的话</td></tr>
+    <tr><td><code>a_watch_pass_reports_the_file_that_is_no_longer_there</code></td>
+      <td>同一件事在 <code>wp watch</code> 的人类输出上可见——库层测试不会替你证明这一点</td></tr>
+    <tr><td><code>apps/desktop/tests/views.rs</code></td>
+      <td>总览与演进两组</td>
+      <td>§46 六问逐问有值（或出现在 <code>gaps</code> 里）、<code>kinds</code> 只计数；§47 的基线、
+        分组与"ADR 不建表"各有一条断言</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <strong>本轮合计：</strong><code>cargo test --workspace</code> = <b>300 passed / 0 failed / 1 ignored</b>
+  （Keychain 那条仍需显式环境变量），构建零 warning。四层不变（<a href="docs/adr/ADR-总览.html#adr-020">ADR-020</a>）：
+  库（golden 7 条 + 各 crate 套件 + <code>native_messaging</code> 13 条 + 新建 <code>resolution</code> 3 条 +
+  <code>map_and_snapshot</code> 10 条 + <code>integration</code> 15 条）、
+  真二进制（<code>cli_e2e</code> <b>22</b> 条）、桌面壳视图（<code>views.rs</code> <b>23</b> 条，比上一轮翻倍——不启动 webview
+  就能驱动整条读路径；末一条把 Rust 载荷的键与 <code>app.js</code> 读的键逐个对上，正是第四轮对接时找出两处不一致的那类断言）、
+  扩展侧只有 <code>node --check</code>——V1 不为它装 JS 测试框架（§60 的成本规则），
+  协议的断言全部在 Rust 那一侧。
+</div>
+
+<h2 id="stages">八、V1-A … V1-H 逐段状态（§21）</h2>
+<table>
+  <thead><tr><th>段</th><th>§21 条目</th><th>状态</th><th>证据</th></tr></thead>
+  <tbody>
+    <tr><td>V1-A Foundation</td><td>Monorepo / Tauri / Rust Core / SQLite / Migration / Repository Ports / Event Store</td>
+      <td class="ok">✅</td>
+      <td>12 份 manifest；<code>Repositories</code> 十一个端口；<code>seq</code> 确定性重放；migration 现在到 <strong>v4</strong>，
+        且 v4 有它自己的升级测试</td></tr>
+    <tr><td>V1-B Project Baseline</td><td>Project / Charter / Scope / Architecture Baseline / User Lock</td>
+      <td class="ok">✅</td>
+      <td>版本化 + 非用户写入得 <code>CoreError::Locked</code>；<code>charter_updates_keep_history_and_lock_blocks_agents</code></td></tr>
+    <tr><td>V1-C State Engine</td><td>Task / Issue / Decision / Artifact / Milestone / Change Proposal / AEP / Evidence / Reducer</td>
+      <td class="ok">✅</td>
+      <td>本轮补上 milestone 的 planned→reached；§14.7 的缺陷修复与 materialization 见 ADR-030</td></tr>
+    <tr><td>V1-D Capture</td><td>Manual Import / Browser Extension / Native Messaging / Conversation Normalizer / Git·File Watcher / Adapter SDK</td>
+      <td class="warn">◐</td>
+      <td>六项里五项已建且各有测试（含 §34/§35 双侧对着写，ADR-031）；文件监听本轮补上删除信号；
+        <strong>欠的是 §38.5 的入站采集</strong>（ADR-028），它不在 §21 这六项的名字里，但它是 V1-D 唯一真正的欠项</td></tr>
+    <tr><td>V1-E Workbench</td><td>Overview / Timeline / Project Map / Decisions / Evolution / Drift·Inbox / Search</td>
+      <td class="ok">✅（本轮）</td>
+      <td>七项全部有内容：§46 六问逐问作答、§47 五项各有交代（ADR 那一项目指出去）；
+        加上第一屏 diff、上下文预览、健康与备份。<strong>webview 像素仍为人工核对</strong>（ADR-029）</td></tr>
+    <tr><td>V1-F Context Engine</td><td>Retrieval / Budget / Compile / Preview / Route / Agent Prepare</td>
+      <td class="ok">✅</td>
+      <td>§40 三层检索、§43 分 section 预算、§53 Policy Filter、§54 Audit；
+        <code>a_pack_carries_the_facts_a_question_needs_and_records_what_it_dropped</code></td></tr>
+    <tr><td>V1-G Guard</td><td>Scope Check / Decision Conflict / Basic Drift Alert / Change Review</td>
+      <td class="ok">✅</td>
+      <td>六条词法规则 + §27 State Judge + §7.4 确认即锁定；阶梯本轮有了自己的测试文件</td></tr>
+    <tr><td>V1-H Hardening</td><td>Backup / Export / Audit / Adapter Health / Golden Test / E2E</td>
+      <td class="ok">✅</td>
+      <td>在线备份 + <code>PRAGMA integrity_check</code> + restore；六个导出 + <code>.projectpack</code>；
+        四种结局的 <code>wp adapters</code>；§59/§60 预算由 12 份 manifest 巡检钉住</td></tr>
+  </tbody>
+</table>
+
+<h2 id="accept">九、§14 的十条 V1 验收，逐条对应到测试名</h2>
+<table>
+  <thead><tr><th>#</th><th>验收条目</th><th>证据</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>创建项目并填写 Charter</td><td><code>a_bound_directory_is_a_source…</code> 前置的 <code>Workbench::ready()</code> fixture；<code>charter_updates_keep_history_and_lock_blocks_agents</code></td></tr>
+    <tr><td>2</td><td>绑定代码目录</td><td><code>a_bound_directory_is_a_source_and_capturing_it_twice_writes_nothing_twice</code>、<code>a_capture_without_a_bound_directory_refuses_to_guess</code></td></tr>
+    <tr><td>3</td><td>至少两个不同来源的开发记录</td><td><code>two_adapters_in_one_project_stay_two_sources</code>、<code>two_products_capture_into_one_project_and_stay_two_sources</code></td></tr>
+    <tr><td>4</td><td>形成 Task / Decision / Issue / Artifact</td><td><code>canned_commits_become_facts_artifacts_and_evidence</code>、<code>drift_scope_conflicts_and_aeps_project</code></td></tr>
+    <tr><td>5</td><td>自动生成 PROJECT_MAP</td><td><code>a_title_only_decision_renders_as_a_decision_not_a_broken_line</code> + §31 十三 section 的 golden</td></tr>
+    <tr><td>6</td><td>指出至少一种潜在偏航或冲突</td><td><code>the_drift_rules_fire_on_the_material_they_are_for</code>、<code>scope_drift_reads_the_boundary_and_only_the_boundary</code></td></tr>
+    <tr><td>7</td><td>用户点击某个 Issue</td><td>桌面壳 <code>a_click_on_a_record_focuses_the_pack_without_a_sentence</code>；CLI 侧 <code>a_selected_record_travels_at_the_top_of_the_ladder</code>（ADR-029 / ADR-030）</td></tr>
+    <tr><td>8</td><td>生成含 Charter / Decision / 相关文件 / 最近讨论的包</td><td><code>a_pack_carries_the_facts_a_question_needs_and_records_what_it_dropped</code></td></tr>
+    <tr><td>9</td><td>成功准备到另一个 Agent</td><td><code>prepare_hands_the_payload_to_a_human_and_an_audit_row_to_the_record</code>（§7.8：发送永远是人的动作）</td></tr>
+    <tr><td>10</td><td>Agent 的后续结果重新进入时间线</td><td><strong>本轮新增</strong> <code>a_second_agent_turn_re_enters_the_timeline</code>；此前该链条只有反面证明（重推不新增）与 ADR-031 的浏览器回路</td></tr>
+  </tbody>
+</table>
+
+<h2 id="gates">十、§62 的七道发布门</h2>
+<table>
+  <thead><tr><th>门</th><th>要求</th><th>机器证据</th></tr></thead>
+  <tbody>
+    <tr><td>Continuity</td><td>跨两个来源可连续记录</td><td class="ok">✅</td><td><code>two_adapters_in_one_project_stay_two_sources</code></td></tr>
+    <tr><td>Fidelity</td><td>Charter / Scope / Decision 不被静默覆盖</td><td class="ok">✅</td><td><code>charter_scope_and_baseline_are_read_only_and_outside_the_hash</code>、<code>the_confirmed_decision_is_active_and_the_proposal_is_not</code>、<code>an_agent_cannot_confirm_or_create</code></td></tr>
+    <tr><td>Traceability</td><td>关键状态可追溯 Evidence</td><td class="ok">✅</td><td><code>evidence_answers_why_the_system_believes_it</code>、<code>a_decision_opens_onto_the_evidence_it_cites</code>、<code>evidence_opens_onto_the_record_that_cites_it</code></td></tr>
+    <tr><td>Drift</td><td>基础偏航检测</td><td class="ok">✅</td><td>六条规则各自的测试 + <code>resolving_a_drift_alert_moves_the_alert_and_records_an_event</code></td></tr>
+    <tr><td>Context</td><td>把正确上下文准备给另一个 Agent</td><td class="ok">✅</td><td><code>prepare_hands_the_payload_to_a_human_and_an_audit_row_to_the_record</code>、<code>routing_is_advice_that_reports_the_policy_instead_of_obeying_it</code></td></tr>
+    <tr><td>Recovery</td><td>可导出、备份、恢复</td><td class="ok">✅</td><td><code>a_backup_returns_the_workbench_to_an_earlier_moment</code>、<code>a_live_database_reports_itself_whole_and_a_backup_carries_every_table</code>、<code>restoring_discards_what_was_recorded_after_the_backup</code></td></tr>
+    <tr><td>Degradation</td><td>Adapter 失效仍能 Copy Context Pack 继续</td><td class="ok">✅</td><td><code>a_broken_adapter_is_named_and_the_workbench_keeps_working</code>、<code>a_fallback_the_adapter_writes_by_hand_is_still_a_fallback</code>、<code>material_that_landed_with_a_broken_cursor_is_degraded</code></td></tr>
+  </tbody>
+</table>
+<p class="sub">表里最后一列是测试名而不是描述：一条只能由人眼确认的门（webview 像素、真 Chrome 里的扩展）
+不会被这一列代表，见下一节。</p>
+
+<h2 id="open">十一、仍然没做（以及为什么不算偷工）</h2>
+<ul>
+  <li><strong>§38.5 的入站 MCP 采集</strong>——工作台主动去读 agent 那边的会话。
+    词汇表里 <code>SourceType::Mcp</code> 已在，<code>wp import transcript --source-type mcp</code> 也收文件，
+    但工作区没有任何代码向外开 MCP 连接。缺的不是代码位置，是一个真的、值得主动去读的会话源；
+    触发条件、<code>McpClientAdapter</code> 七个动词的映射、以及"必须 stdio 阻塞、不许为此引 async runtime"
+    （§60 的 manifest 巡检说了算）全部记在 <a href="docs/adr/ADR-总览.html#adr-028">ADR-028</a>。
+    <strong>§26 的 V1-D 因此仍是 ◐，不是 ✅。</strong></li>
+  <li><strong>桌面壳的 webview 像素</strong>（ADR-029）与<strong>扩展在真 Chrome 里的表现</strong>（ADR-031）。
+    这两条是同一类残留：视图层测试能证明字段与逻辑，证明不了渲染。本轮没有把它们说成已完成，
+    也没有把它们升格成"缺口"——它们是<em>人的下一步</em>。</li>
+  <li><strong>§29 的 merge candidate / unverified claim 没有持久生产者</strong>：本轮<strong>记下来而没有建表</strong>。
+    建表要 §16 没列的事件类型，且会造出第二个状态来源（禁止 4）；没有触发条件就先建，正是禁止 8。</li>
+  <li><strong>§40 的 CJK 语义检索</strong>、<strong>AEP-001…005</strong>、<code>crates/agent-runtime</code> 与
+    <code>packages/*</code>：全部是<strong>未触发</strong>，按 §19 禁止 8 属于"不该做"，不是"没做完"。</li>
+</ul>
+<div class="callout warn">
+  <strong>关于"V1 是否全部完成"这句结论：</strong>现在能写的是——八段里除 V1-D 的入站采集之外，
+  §21 的五十四个条目没有一个留着未写的代码，§14 的十条与 §62 的七门逐条有测试名；
+  <strong>还不能写</strong>的是"V1 已完成"——那需要 ADR-028 的那半扇门，以及人在真浏览器与真窗口里各看一次。
+</div>
+
+<h2 id="run">十二、怎么跑</h2>
+<pre><code>export PATH="$HOME/.cargo/bin:$PATH"        # cargo 不在默认 PATH
+cargo test --workspace                       # 四层：库 / 真二进制 / 桌面壳视图 / golden
+cargo build -p vibe-cli                      # 二进制叫 wp，包叫 vibe-cli
+
+./target/debug/wp --help
+./target/debug/wp import transcript ./thread.json --source-id chat-1 --source-type chatgpt_web
+./target/debug/wp map --json                 # §31 的 13 个 section，空的自己声明为空
+./target/debug/wp context prepare --select issue:I-1 --to codex --out ./pack.md
+./target/debug/wp watch --dir ./src          # §39：一次 pass，出现 / 改动 / 消失
+./target/debug/wp host manifest              # §34/§35：Native Messaging 宿主注册 JSON
+cargo test -p vibe-storage --test integration  # §52 L2 键 + v4 升级
+
+cargo build -p wp-desktop                    # 桌面壳（Tauri 2）
+cargo run -p wp-desktop                      # 需要本机已装 Tauri 2 的 webview 依赖</code></pre>
+<p class="sub">扩展侧仍是零依赖、零构建：<code>node --check apps/extension/background.js content.js popup.js</code>，
+装载步骤见 <code>apps/extension/README.md</code>（该表由 ADR-031 自己维护）。</p>
+
+<footer>
+  <p><strong>本轮回写的文档：</strong>
+    <a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a>（§20 四个块 + §26 阶段表）、
+    <a href="docs/RECORDS.md">docs/RECORDS.md</a>（2026-10-06 第五轮全记录）、
+    <a href="docs/adr/ADR-总览.html">docs/adr/ADR-总览.html</a>（25 条：新增
+      <a href="docs/adr/ADR-总览.html#adr-032">ADR-032</a> /
+      <a href="docs/adr/ADR-总览.html#adr-033">ADR-033</a>，就地修订
+      <a href="docs/adr/ADR-总览.html#adr-013">ADR-013</a> /
+      <a href="docs/adr/ADR-总览.html#adr-016">ADR-016</a> /
+      <a href="docs/adr/ADR-总览.html#adr-020">ADR-020</a> /
+      <a href="docs/adr/ADR-总览.html#adr-022">ADR-022</a>）、
+    <a href="docs/adr/README.md">docs/adr/README.md</a>（索引与"下一条从 ADR-034 起"）。
+  </p>
+  <p>上一轮：<a href="V1第四轮开发报告.html">V1 第四轮 · 浏览器的门</a> ·
+    再上一轮：<a href="V1第三轮开发报告.html">V1 第三轮 · 桌面壳八屏</a> ·
+    <a href="V1第二轮开发报告.html">V1 第二轮 · 补齐未完成与半成品</a>。
+    全部决定原文在 <a href="docs/adr/ADR-总览.html">ADR 总览</a> 的「五、全部决定原文」。</p>
+  <p>构览 Codlas · V1 第五轮开发报告 · 2026-10-06</p>
+</footer>
+
+</main>
+</body>
+</html>

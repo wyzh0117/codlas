@@ -122,8 +122,10 @@ pub trait ConversationRepository: Send + Sync {
     fn get_conversation(&self, project_id: &str, id: &str) -> Result<Option<Conversation>>;
     fn list_conversations(&self, project_id: &str) -> Result<Vec<Conversation>>;
 
-    /// Insertion is idempotent: external id first, then content hash within the
-    /// conversation (§52 L1 + L2).
+    /// Insertion is idempotent: external id first, then content hash **per role** within
+    /// the conversation (§52 L1 + L2). The key carries no timestamp — a re-push must be
+    /// idempotent (§51) while a source time can be absent or jittery, so "same text,
+    /// later" is L3's hint, never a deletion.
     fn insert_messages(
         &self,
         conversation_id: &str,

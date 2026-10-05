@@ -303,4 +303,43 @@ ALTER TABLE entities_v3 RENAME TO entities;
 CREATE INDEX idx_entities_project_kind ON entities (project_id, kind, status);
 "#,
     },
+    // §52's L2 is content hash *per role*: the baseline keyed messages on
+    // (conversation_id, content_hash) alone, so a user typing "继续" swallowed the
+    // assistant's "继续", and a phrase said twice at different times lost the second
+    // one. Captured material is evidence, and a dedup level that exists to stop
+    // double-counting must not delete content. The role belongs in the identity key;
+    // the timestamp does not — §51 requires a re-push to be idempotent, and a source
+    // timestamp can be absent or jittery, so "same text, different time" stays the
+    // job of L3 near-duplicate hints, which propose and never delete.
+    // The old key is an inline UNIQUE constraint, and SQLite will not drop an
+    // automatic index, so the table is rebuilt rather than altered.
+    Migration {
+        version: 4,
+        name: "messages_dedup_key_includes_role",
+        sql: r#"
+CREATE TABLE messages_v4 (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  external_message_id TEXT,
+  created_at TEXT,
+  observed_at TEXT NOT NULL
+);
+
+INSERT INTO messages_v4 (id, conversation_id, project_id, role, content, content_hash,
+                         external_message_id, created_at, observed_at)
+  SELECT id, conversation_id, project_id, role, content, content_hash, external_message_id,
+         created_at, observed_at FROM messages;
+
+DROP TABLE messages;
+ALTER TABLE messages_v4 RENAME TO messages;
+CREATE UNIQUE INDEX idx_messages_l2 ON messages (conversation_id, role, content_hash);
+CREATE UNIQUE INDEX idx_messages_external ON messages (conversation_id, external_message_id)
+  WHERE external_message_id IS NOT NULL;
+CREATE INDEX idx_messages_project ON messages (project_id, observed_at DESC);
+"#,
+    },
 ];

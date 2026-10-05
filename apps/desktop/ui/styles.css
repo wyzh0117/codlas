@@ -117,5 +117,11 @@ table.grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .pill.failed, .pill.unavailable { background: var(--del-bg); color: var(--del); }
 
 .empty-screen { color: var(--ink-soft); padding: 24px 2px; font-size: .9rem; }
+/* §46 / §47: a question or leg the compiled data cannot answer is announced with its reason,
+   in the map's own voice for an empty section (ADR-011). */
+.gap {
+  color: var(--ink-soft); font-style: italic; font-size: .84rem;
+  border-left: 3px solid var(--line); padding-left: 10px; margin: 0 0 10px;
+}
 .error { color: var(--warn); font-size: .86rem; white-space: pre-wrap; }
 pre.pack { background: #10161b; color: #dfe6ec; padding: 14px; border-radius: var(--radius); font-size: .8rem; overflow-x: auto; }

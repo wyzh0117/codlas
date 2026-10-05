@@ -59,6 +59,41 @@ impl Workbench {
         self.command(args).output().expect("wp runs")
     }
 
+    /// Drive the Native Messaging channel the way Chrome does — frames in on stdin, frames
+    /// out on stdout, channel closed at the end — and hand back what came out. The binary
+    /// under test is `wp host serve`, so this covers the argv the wrapper script uses too.
+    fn host(&self, input: &[u8]) -> Vec<u8> {
+        use std::io::{Read, Write};
+        use std::process::Stdio;
+
+        let mut child = self
+            .command(&["host", "serve"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("`wp host serve` starts");
+        {
+            let mut stdin = child.stdin.take().expect("stdin");
+            stdin.write_all(input).expect("frames written");
+            stdin.flush().expect("flushed");
+        }
+        let mut frames = Vec::new();
+        child
+            .stdout
+            .take()
+            .expect("stdout")
+            .read_to_end(&mut frames)
+            .expect("frames read");
+        let done = child.wait_with_output().expect("the host ends with the channel");
+        assert!(
+            done.status.success(),
+            "`wp host serve` failed: {}",
+            String::from_utf8_lossy(&done.stderr)
+        );
+        frames
+    }
+
     /// Success, stdout as text. A failed run panics with stderr attached, because a
     /// bare exit code says nothing about why §53 refused.
     fn ok(&self, args: &[&str]) -> String {
@@ -1075,6 +1110,82 @@ fn watching_a_plain_folder_still_captures_the_files_it_can() {
     assert_eq!(report["files"]["scanned"], serde_json::json!(1));
 }
 
+/// §39's third file signal, on the surface a user actually calls: `wp watch` reads a tree
+/// twice and the second pass finds one of its files gone. The removal has to reach the log
+/// as `ARTIFACT_DELETED` and mark the artifact, while completing and deciding nothing.
+#[test]
+fn a_watch_pass_reports_the_file_that_is_no_longer_there() {
+    let work = Workbench::ready();
+    let tree = work.dir().join("tracked");
+    std::fs::create_dir_all(tree.join("src")).expect("src dir");
+    let scratch = tree.join("src/temp.rs");
+    std::fs::write(&scratch, "fn scratch() {}\n").expect("file");
+    std::fs::write(tree.join("src/keep.rs"), "fn kept() {}\n").expect("file");
+
+    let first = work.json(&["watch", "--dir", &tree.to_string_lossy()]);
+    assert_eq!(
+        first["files"]["eventsAppended"],
+        serde_json::json!(2),
+        "two files, both recorded: {}",
+        first["files"]
+    );
+    let tasks_before = work.json(&["state", "show"])["tasks"].clone();
+
+    std::fs::remove_file(&scratch).expect("the file is removed");
+    let second = work.json(&["watch", "--dir", &tree.to_string_lossy()]);
+    assert_eq!(
+        second["files"]["changed"],
+        serde_json::json!(["src/temp.rs"]),
+        "the pass names the path that vanished, relative and forward-slashed"
+    );
+    assert_eq!(second["files"]["eventsAppended"], serde_json::json!(1));
+
+    let timeline = work.json(&["timeline", "--limit", "300"]);
+    let removal = timeline
+        .as_array()
+        .expect("a timeline")
+        .iter()
+        .filter(|event| event["type"] == serde_json::json!("ARTIFACT_DELETED"))
+        .collect::<Vec<_>>();
+    assert_eq!(removal.len(), 1, "{removal:?}");
+    assert_eq!(
+        removal[0]["payload"]["path"],
+        serde_json::json!("src/temp.rs")
+    );
+    assert_eq!(removal[0]["actorType"], serde_json::json!("system"));
+
+    // The row is marked, not dropped: §45 still has to be able to name the file.
+    let listed = work.json(&["state", "show"])["artifacts"].clone();
+    let artifacts = listed.as_array().expect("artifacts");
+    let gone = artifacts
+        .iter()
+        .find(|artifact| artifact["path"] == serde_json::json!("src/temp.rs"))
+        .expect("the removed file keeps its row");
+    assert_eq!(gone["deleted"], serde_json::json!(true));
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact["path"] == serde_json::json!("src/keep.rs")
+                && artifact["deleted"] == serde_json::json!(false)),
+        "the file that is still there was not swept up: {artifacts:?}"
+    );
+
+    // A third pass over the same absence writes nothing new (§51), and nothing in the
+    // project's judgement moved (§39: a removal is evidence, never a completion).
+    let third = work.json(&["watch", "--dir", &tree.to_string_lossy()]);
+    assert_eq!(
+        third["files"]["eventsAppended"],
+        serde_json::json!(0),
+        "one removal is one fact"
+    );
+    assert_eq!(third["files"]["changed"], serde_json::json!([]));
+    assert_eq!(
+        work.json(&["state", "show"])["tasks"],
+        tasks_before,
+        "a deleted file completed or cancelled nothing"
+    );
+}
+
 /// §52's L3 has one rule and it is not "dedupe better": 只提示，不直接删除. A library
 /// function that returns pairs cannot delete anything anyway, so what this surface has to
 /// prove is the reach and the restraint — a hint a user can act on, and message rows that
@@ -1279,5 +1390,436 @@ fn a_selected_record_travels_at_the_top_of_the_ladder() {
         !malformed.status.success(),
         "a reference needs its kind: {}",
         String::from_utf8_lossy(&malformed.stderr)
+    );
+}
+
+/// §58's E2E row, driven the way Chrome drives it: frames on stdin, frames on stdout, no
+/// library shared with the host. A page pushes a thread, the workbench folds it, the map
+/// and the pack follow, and the pack comes back out as an instruction to *fill* a composer
+/// — never a send (§7.8).
+///
+/// The codec is re-implemented here on purpose. If the host's idea of a frame ever drifted
+/// from the four-bytes-then-JSON both sides were promised, a shared helper would hide it
+/// and this hand-written one would not.
+#[test]
+fn a_browser_session_round_trips_through_the_native_host() {
+    let work = Workbench::ready();
+
+    let encode = |bodies: &[String]| -> Vec<u8> {
+        let mut out = Vec::new();
+        for body in bodies {
+            out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+            out.extend_from_slice(body.as_bytes());
+        }
+        out
+    };
+    let decode = |bytes: &[u8]| -> Vec<serde_json::Value> {
+        let mut cursor = 0;
+        let mut out = Vec::new();
+        while cursor + 4 <= bytes.len() {
+            let length = u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().expect("four")) as usize;
+            cursor += 4;
+            let body = &bytes[cursor..cursor + length];
+            out.push(serde_json::from_slice(body).expect("the host answers in JSON"));
+            cursor += length;
+        }
+        out
+    };
+    let frame = |command: &str, payload: serde_json::Value| -> String {
+        serde_json::json!({
+            "protocol": "codlas-nm/1",
+            "origin": "https://chatgpt.com",
+            "command": command,
+            "payload": payload
+        })
+        .to_string()
+    };
+    let rogue = |payload: serde_json::Value| -> String {
+        serde_json::json!({
+            "protocol": "codlas-nm/1",
+            "origin": "https://not-chatgpt.example",
+            "command": "capture",
+            "payload": payload
+        })
+        .to_string()
+    };
+    let thread = frame(
+        "capture",
+        serde_json::json!({
+            "source": "chatgpt_web",
+            "conversationId": "e2e-login-500",
+            "title": "为什么登录一直失败",
+            "messages": [
+                {"role": "user", "content": "登录接口报错，返回 500", "messageId": "u-1"},
+                {"role": "assistant", "content": "我需要看后端日志", "messageId": "a-1"}
+            ]
+        }),
+    );
+
+    let issues = |work: &Workbench| -> Vec<String> {
+        work.json(&["state", "show"])["issues"]
+            .as_array()
+            .expect("state carries its issues")
+            .iter()
+            .map(|issue| issue["id"].as_str().unwrap_or_default().to_string())
+            .collect()
+    };
+    let before = issues(&work);
+
+    let replies = decode(&work.host(&encode(&[
+        frame("hello", serde_json::json!({})),
+        thread.clone(),
+        thread,
+    ])));
+    assert_eq!(replies.len(), 3, "one reply per frame: {replies:?}");
+    assert_eq!(replies[0]["data"]["protocol"], serde_json::json!("codlas-nm/1"));
+    assert_eq!(
+        replies[0]["data"]["autoExecute"],
+        serde_json::json!(false),
+        "§37: the browser surface never claims it can act on its own"
+    );
+    assert_eq!(replies[1]["data"]["messages"]["inserted"], serde_json::json!(2));
+    assert!(replies[1]["data"]["events"]["appended"].as_u64().expect("count") >= 1);
+    assert_eq!(
+        replies[2]["data"]["messages"]["inserted"],
+        serde_json::json!(0),
+        "Stage D: a repeat sync is empty"
+    );
+    assert_eq!(replies[2]["data"]["messages"]["duplicate"], serde_json::json!(2));
+
+    let after = issues(&work);
+    let fresh: Vec<&String> = after.iter().filter(|id| !before.contains(id)).collect();
+    assert_eq!(fresh.len(), 1, "the pushed thread should open exactly one issue: {fresh:?}");
+    let issue = fresh[0].clone();
+
+    // The map is the next link, and it is compiled from the same fold the pack reads.
+    let map = work.ok(&["map", "show"]);
+    assert!(map.contains("Open Issues"), "the §31 shape lost its section:\n{map}");
+
+    let pack = work
+        ._dir
+        .path()
+        .join("pack.md")
+        .to_string_lossy()
+        .into_owned();
+    // §53 first: this project's charter forbids cloud models, so a pack *destined* for
+    // ChatGPT is refused outright — the browser is exactly the surface that gate exists for.
+    let cloud = work.run(&["context", "build", "--to", "chatgpt", "--select", &format!("issue:{issue}")]);
+    assert!(
+        !cloud.status.success(),
+        "a cloud destination must be refused by a local-only project"
+    );
+    assert!(
+        String::from_utf8_lossy(&cloud.stderr).contains("cloud target"),
+        "the refusal should say which gate fired: {}",
+        String::from_utf8_lossy(&cloud.stderr)
+    );
+
+    // What the user may carry is a pack with no stated destination: §53 gates the
+    // destination, §7.8 leaves the moving to the human.
+    work.ok(&["context", "build", "--select", &format!("issue:{issue}"), "--out", &pack]);
+    let text = std::fs::read_to_string(&pack).expect("the pack was written");
+    assert!(text.contains("# Project Context"), "§41's header is missing:\n{text}");
+    assert!(
+        text.contains("Selected Context"),
+        "§42.1: the clicked issue should lead the pack:\n{text}"
+    );
+
+    let closing = decode(&work.host(&encode(&[
+        frame("open", serde_json::json!({"url": "https://chatgpt.com/g/e2e"})),
+        frame("inject", serde_json::json!({"text": text})),
+    ])));
+    assert_eq!(closing[0]["data"]["action"], serde_json::json!("openTab"));
+    assert_eq!(closing[1]["data"]["action"], serde_json::json!("fillComposer"));
+    assert_eq!(
+        closing[1]["data"]["send"],
+        serde_json::json!(false),
+        "the last frame of the chain is still a human's to send"
+    );
+    assert_eq!(closing[1]["data"]["text"], serde_json::json!(text));
+
+    // A page outside the allow-list gets a refusal, and it writes nothing at all.
+    let refused = decode(&work.host(&encode(&[rogue(serde_json::json!({
+        "source": "chatgpt_web",
+        "conversationId": "never-landed",
+        "messages": [{"role": "user", "content": "登录接口报错，返回 503"}]
+    }))])));
+    assert_eq!(refused.len(), 1, "a refusal is still a reply: {refused:?}");
+    assert_eq!(refused[0]["ok"], serde_json::json!(false));
+    assert!(
+        refused[0]["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("origin rejected"),
+        "{}",
+        refused[0]["error"]
+    );
+    assert_eq!(
+        issues(&work),
+        after,
+        "the refused thread must not have reached the projection"
+    );
+}
+
+/// §14's last item — 结果回流时间线 — is the one acceptance the capture tests prove from
+/// the wrong side: every import test here re-pushes a batch and asserts nothing new arrives.
+/// This pushes genuinely new material *from the agent's side* and asserts the opposite
+/// happened: new events above the old high-water seq, a timeline that shows them, a map and
+/// a snapshot diff that moved, and a pack compiled afterwards that carries the agent's own
+/// words back out.
+#[test]
+fn a_second_agent_turn_re_enters_the_timeline() {
+    let work = Workbench::ready();
+    let map_section = |markdown: &str, heading: &str| -> Vec<String> {
+        markdown
+            .split("\n## ")
+            .find(|block| block.starts_with(heading))
+            .map(|block| {
+                block
+                    .lines()
+                    .filter(|line| line.starts_with("- "))
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_else(|| panic!("the §31 shape lost its {heading} section:\n{markdown}"))
+    };
+
+    // §14 items 7-9: the user clicks a record and the pack goes out to an agent.
+    let clicked = work.json(&["state", "show"])["issues"][0]["id"]
+        .as_str()
+        .expect("the fixture project has an open issue")
+        .to_string();
+    let outbound = work.dir().join("for-the-agent.md");
+    let prepared = work.json(&[
+        "context",
+        "prepare",
+        "--select",
+        &format!("issue:{clicked}"),
+        "--to",
+        "local-coding-agent",
+        "--tokens",
+        "900",
+        "--out",
+        &outbound.to_string_lossy(),
+    ]);
+    assert!(
+        prepared["fallback"]["instruction"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("sends nothing"),
+        "§7.8: the workbench hands the pack over, it does not send it: {prepared}"
+    );
+    assert_eq!(
+        prepared["fallback"]["payloadPath"].as_str(),
+        Some(outbound.to_string_lossy().as_ref()),
+        "the instruction names the payload it asked to be carried"
+    );
+
+    // Where the workbench stands before the agent answers.
+    let baseline = work.json(&["snapshot", "take", "--label", "before-the-agent-answered"]);
+    let baseline_id = baseline["id"].as_str().expect("a snapshot id").to_string();
+    let log_before = work.json(&["timeline", "--limit", "300"]);
+    let high_water = log_before
+        .as_array()
+        .expect("a timeline")
+        .iter()
+        .map(|event| event["seq"].as_i64().expect("every event carries its seq"))
+        .max()
+        .expect("the fixture log is not empty");
+    let issues_before: Vec<String> = work
+        .json(&["state", "show"])["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|issue| issue["id"].as_str().unwrap_or_default().to_string())
+        .collect();
+    let map_before = work.json(&["map", "save"]);
+    let open_before = map_section(
+        map_before["markdown"].as_str().expect("a map"),
+        "Open Issues",
+    );
+    let state_before = work.json(&["state", "show"]);
+
+    // The agent's reply, arriving through the ordinary import route as its own source.
+    let answer = work.dir().join("agent-answer.json");
+    std::fs::write(
+        &answer,
+        r#"[
+  {"role":"assistant","content":"接口仍然报错，登录返回 500，我怀疑 token 刷新没有做过期检测。"},
+  {"role":"assistant","content":"已经实现了 refresh token 的过期检测，改动在 src/auth/rotate.rs。"},
+  {"role":"user","content":"先记下来，等我看过一遍再说。"}
+]"#,
+    )
+    .expect("an answer to import");
+    let path = answer.to_string_lossy().into_owned();
+    let imported = work.json(&[
+        "import",
+        "transcript",
+        &path,
+        "--source-id",
+        "agent-answer",
+        "--source-type",
+        "generic_cli",
+    ]);
+    assert_eq!(
+        imported["totalNewMessages"],
+        serde_json::json!(3),
+        "none of this was in the log before: {imported}"
+    );
+    assert_eq!(
+        imported["totalDuplicates"],
+        serde_json::json!(0),
+        "this is new material, not a re-push of the batch §51 dedups"
+    );
+    assert!(
+        imported["totalEvents"].as_u64().unwrap_or(0) >= 2,
+        "the agent reported an issue and a claim: {imported}"
+    );
+
+    // (a) the log grew, and everything new sits above the old high-water mark.
+    let log = work.json(&["timeline", "--limit", "300"]);
+    assert!(
+        log.as_array().unwrap().len() > log_before.as_array().unwrap().len(),
+        "the timeline did not move"
+    );
+    let fresh: Vec<&serde_json::Value> = log
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| event["seq"].as_i64().unwrap() > high_water)
+        .collect();
+    let fresh_types: Vec<&str> = fresh
+        .iter()
+        .map(|event| event["type"].as_str().unwrap_or_default())
+        .collect();
+    assert!(
+        fresh_types.contains(&"ISSUE_FOUND") && fresh_types.contains(&"TASK_COMPLETED_CLAIM"),
+        "the agent's answer never reached the log as facts: {fresh_types:?}"
+    );
+    assert!(
+        fresh.iter().all(|event| event["actorType"] == serde_json::json!("agent")),
+        "these are the agent's own turns, not the user's: {fresh:?}"
+    );
+    // §18: an append renumbers nothing that was already there — every pre-capture event
+    // keeps its place below the new material.
+    let moved_up = log
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| {
+            event["seq"].as_i64().unwrap() > high_water
+                && log_before
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|earlier| earlier["id"] == event["id"])
+        })
+        .count();
+    assert_eq!(moved_up, 0, "a re-capture renumbered the existing log");
+    let newest = fresh
+        .iter()
+        .map(|event| event["seq"].as_i64().unwrap())
+        .max()
+        .expect("at least one new event");
+
+    // (b) `wp timeline` shows them, newest first, with the seq the log gave them.
+    let prose = work.ok(&["timeline", "--limit", "40"]);
+    assert!(
+        prose.contains(&format!("{newest:>5}")),
+        "the newest seq is missing from the read surface:\n{prose}"
+    );
+    let reported_issue = work
+        .json(&["state", "show"])["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|issue| issue["id"].as_str().unwrap_or_default().to_string())
+        .find(|id| !issues_before.contains(id))
+        .expect("the agent's issue is now project memory");
+    assert!(
+        prose.contains(&format!("ISSUE_FOUND · issue {reported_issue}")),
+        "the timeline does not name the issue the agent opened:\n{prose}"
+    );
+
+    // (c) the projection moved: same section, one more line, a different state hash, and
+    // the saved view — not only a fresh compile — agrees.
+    let map = work.json(&["map", "save"]);
+    let markdown = map["markdown"].as_str().expect("a map");
+    assert_ne!(
+        map["sourceStateHash"],
+        map_before["sourceStateHash"],
+        "the agent's answer changed nothing the map is compiled from"
+    );
+    let open_after = map_section(markdown, "Open Issues");
+    assert_eq!(
+        open_after.len(),
+        open_before.len() + 1,
+        "one new open issue, and the map says so:\n{markdown}"
+    );
+    assert!(
+        markdown.contains("接口仍然报错"),
+        "the agent's own words are not in the map:\n{markdown}"
+    );
+    assert_eq!(
+        work.json(&["map", "latest"])["markdown"],
+        serde_json::json!(markdown),
+        "the cached view is what moved (§33)"
+    );
+    let state = work.json(&["state", "show"]);
+    assert!(
+        state["lastSeq"].as_i64().unwrap() > state_before["lastSeq"].as_i64().unwrap(),
+        "§33: the fold ran past the new events"
+    );
+    assert_ne!(
+        state["stateHash"], state_before["stateHash"],
+        "the materialized state is a different thing than it was"
+    );
+
+    // §33: the snapshot diff reports the same movement a reader would ask about.
+    let diff = work.json(&["diff", "--snapshot", &baseline_id]);
+    assert_ne!(
+        diff["sinceStateHash"],
+        diff["currentStateHash"],
+        "a diff over a moved log that reports nothing is not a diff"
+    );
+    let added_issues = diff["issues"]["added"].as_array().expect("an issues section");
+    assert!(
+        added_issues.iter().any(|entry| entry["id"] == serde_json::json!(reported_issue)),
+        "the agent's issue is missing from the diff: {added_issues:?}"
+    );
+    assert!(
+        diff["tasks"]["added"]
+            .as_array()
+            .expect("a tasks section")
+            .iter()
+            .any(|entry| entry["label"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("已经实现了 refresh token 的过期检测")),
+        "the agent's claim is missing from the diff: {}",
+        diff["tasks"]["added"]
+    );
+
+    // The loop closes where it started: a pack compiled after the answer carries the
+    // agent's own record at the top of the ladder.
+    let inbound = work.dir().join("round-two.md");
+    work.ok(&[
+        "context",
+        "build",
+        "--select",
+        &format!("issue:{reported_issue}"),
+        "--tokens",
+        "900",
+        "--out",
+        &inbound.to_string_lossy(),
+    ]);
+    let pack = std::fs::read_to_string(&inbound).expect("the second pack was written");
+    assert!(
+        pack.contains("## Selected Context"),
+        "§42.1: the new record should lead the pack:\n{pack}"
+    );
+    assert!(
+        pack.contains("接口仍然报错"),
+        "the next agent would receive a pack that knows nothing about the last one:\n{pack}"
     );
 }

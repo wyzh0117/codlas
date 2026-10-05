@@ -7,5 +7,6 @@ pub mod baseline;
 pub mod capture;
 pub mod context;
 pub mod export;
+pub mod host;
 pub mod policy;
 pub mod views;

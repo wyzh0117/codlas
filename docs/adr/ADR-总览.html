@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>构览 Codlas · ADR 总览（20 条架构决定）</title>
+<title>构览 Codlas · ADR 总览（25 条架构决定）</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#161a21; --ink:#e6e9ef; --muted:#9aa4b2;
@@ -67,8 +67,8 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:v
 本页共 <b>22</b> 条 · 最后更新 2026-10-06</div>
 
 <div class="badges">
-  <span class="badge">ADR <b>22 条</b></span>
-  <span class="badge">覆盖 <b>ADR-001 … ADR-030</b>（缺号见下方说明）</span>
+  <span class="badge">ADR <b>25 条</b></span>
+  <span class="badge">覆盖 <b>ADR-001 … ADR-033</b>（缺号见下方说明）</span>
   <span class="badge">介质 <b>单页 HTML，原 19 份 .md 已删除</b></span>
 </div>
 
@@ -97,16 +97,16 @@ AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
 <tr><td><a href="#adr-002">ADR-002</a></td><td>Event-first, with a disposable projection</td><td><span class="status">accepted (design), implemented 2026-10-03</span></td><td>—</td><td>PROJECT_MASTER §7.2, 禁止 4 / 禁止 6, V1_DEVELOPMENT §15–§18</td></tr>
 <tr><td><a href="#adr-004">ADR-004</a></td><td>Repository ports, and what sits on each side of them</td><td><span class="status">accepted (design), implemented 2026-10-03</span></td><td>—</td><td>PROJECT_MASTER §7.5, V1_DEVELOPMENT §6</td></tr>
 <tr><td><a href="#adr-011">ADR-011</a></td><td>PROJECT_MAP is compiled, and empty sections announce themselves</td><td><span class="status">accepted (design), implemented 2026-10-03</span></td><td>—</td><td>PROJECT_MASTER §10, 禁止 6, V1_DEVELOPMENT §30, §31, §33</td></tr>
-<tr><td><a href="#adr-013">ADR-013</a></td><td>One `entities` table with a JSON payload, not one table per object</td><td><span class="status">accepted (implementation deviation from V1_DEVELOPMENT §49, allowed by §50; key corrected by migration v3)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §49 (full table list), §50 (minimum database version)</td></tr>
+<tr><td><a href="#adr-013">ADR-013</a></td><td>One `entities` table with a JSON payload, not one table per object</td><td><span class="status amended">accepted, amended 2026-10-06（§49 的许可偏差、§50 许可；v3 修主键；它引用的 §52 L2 键现为 <a href="#adr-033">ADR-033</a>）</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §49 (full table list), §50 (minimum database version); ADR-033</td></tr>
 <tr><td><a href="#adr-014">ADR-014</a></td><td>Event identity: store-assigned `seq`, actor and status inside the dedup key</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §15, §18, §27, §51, §52; ADR-002</td></tr>
 <tr><td><a href="#adr-015">ADR-015</a></td><td>Drift rules are lexical in V1, and they only ever propose</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §26, §29, §8.6 (PROJECT_MASTER); AEP-004</td></tr>
-<tr><td><a href="#adr-016">ADR-016</a></td><td>What V1&#x27;s first implementation round deliberately does not include</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06 ×2（MCP 转已建、§38.5 入站欠着；V1-E 桌面壳转已建）</span></td><td>2026-10-03</td><td>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</td></tr>
+<tr><td><a href="#adr-016">ADR-016</a></td><td>What V1&#x27;s first implementation round deliberately does not include</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06 ×5（MCP 转已建、§38.5 入站欠着；V1-E 桌面壳转已建；V1-D 浏览器门转已建 → ADR-031；§14 第 7 项的手势已是点击；第五轮：§14 第 10 项补上端到端测试、§29 的两种 Inbox 类别按设计没有持久生产者）</span></td><td>2026-10-03</td><td>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</td></tr>
 <tr><td><a href="#adr-017">ADR-017</a></td><td>The system keychain is explicit opt-in; the default secret store is a 0600 file</td><td><span class="status">accepted (records a deliberate reading of V1_DEVELOPMENT §53)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §53, §54; PROJECT_MASTER §19 禁止 8; ADR-016</td></tr>
 <tr><td><a href="#adr-018">ADR-018</a></td><td>The full-text index stores what a record says, not how it is encoded</td><td><span class="status">accepted (fixes four defects the CLI round surfaced)</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §40 (L2), §43; PROJECT_MASTER §19 禁止 4</td></tr>
 <tr><td><a href="#adr-019">ADR-019</a></td><td>`.projectpack` is a stored zip whose manifest says &quot;projection, not a second source of truth&quot;</td><td><span class="status">accepted</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §55; PROJECT_MASTER §19 禁止 4; ADR-002, ADR-011</td></tr>
-<tr><td><a href="#adr-020">ADR-020</a></td><td>V1&#x27;s user surface is the CLI; two test layers, one implementation</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06（桌面壳是同一实现的第二扇门；e2e 19 条，另有 views 层）</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026, ADR-029</td></tr>
+<tr><td><a href="#adr-020">ADR-020</a></td><td>V1&#x27;s user surface is the CLI; two test layers, one implementation</td><td><span class="status amended">accepted, amended 2026-10-05 + 2026-10-06 ×3（桌面壳是同一实现的第二扇门；第五轮之后 e2e <b>22</b> 条、views 层 <b>23</b> 条、native_messaging 13 条，另新建 <code>resolution</code> 3 条钉住 §28 的阶梯）</span></td><td>2026-10-03</td><td>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026, ADR-029, ADR-031</td></tr>
 <tr><td><a href="#adr-021">ADR-021</a></td><td>An adapter&#x27;s health has exactly four outcomes, and the last run replaces the one before</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §51, §58, §62 Degradation; PROJECT_MASTER §7.9, §13.2 Stage H</td></tr>
-<tr><td><a href="#adr-022">ADR-022</a></td><td>Watch signals are events with a verb in the payload, and they move no state</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §16, §39, §19; PROJECT_MASTER §7.2, §7.3, 禁止 9</td></tr>
+<tr><td><a href="#adr-022">ADR-022</a></td><td>Watch signals are events with a verb in the payload, and they produce no verdict</td><td><span class="status amended">accepted，<strong>amended 2026-10-06</strong>（"不改状态"只对 git 信号成立；文件信号确实写 artifact 行，所以改为"不产生结论"，并修掉 <code>deleted</code> / <code>FileScan::diff</code> 两处说法）</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §16, §39, §19; PROJECT_MASTER §7.2, §7.3, 禁止 9</td></tr>
 <tr><td><a href="#adr-023">ADR-023</a></td><td>A backup is an online copy, made and restored through SQLite&#x27;s own backup API</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §55 Export/Backup, §62 Recovery; PROJECT_MASTER §7.5, §13.2 Stage H; ADR-019</td></tr>
 <tr><td><a href="#adr-024">ADR-024</a></td><td>Level-3 near-duplicates are lexical hints, and a hint carries the thread it came from</td><td><span class="status">accepted</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §52, §59, §60; PROJECT_MASTER §7.2, §19 禁止 9; AEP-002</td></tr>
 <tr><td><a href="#adr-025">ADR-025</a></td><td>The adapter contract answers all seven verbs, and answers them only what it advertised</td><td><span class="status amended">accepted, amended 2026-10-06</span></td><td>2026-10-05</td><td>V1_DEVELOPMENT §37, §58, §62 Degradation, §7.8; PROJECT_MASTER §19 禁止 8; ADR-008 / AEP-003</td></tr>
@@ -115,6 +115,9 @@ AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
 <tr><td><a href="#adr-028">ADR-028</a></td><td>§38.5 is one door, not two: the read side is built, inbound MCP capture is owed</td><td><span class="status">accepted</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §38.5, §37, §58, §60, 禁止 9; PROJECT_MASTER §14 #10, §26 V1-D; ADR-024, ADR-026, ADR-027</td></tr>
 <tr><td><a href="#adr-029">ADR-029</a></td><td>The desktop shell is a second surface on the CLI&#x27;s own runtime, and its only write is §7.4&#x27;s confirm</td><td><span class="status amended">accepted, amended 2026-10-06（§14 第 7 项的那只手落在壳里）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §38, §61 V1-E, §7.4, §7.8, §62; PROJECT_MASTER §13.2 Stage E, §14, 禁止 4, 禁止 7; ADR-006, ADR-016, ADR-020, ADR-025, ADR-027</td></tr>
 <tr><td><a href="#adr-030">ADR-030</a></td><td>A creating event has to carry the whole record, because a fold rebuilds rows from the log alone</td><td><span class="status amended">accepted, amended 2026-10-06（同一份缓存在 §42.1 的选择路径上第二次咬人）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §15–§18, §31, §33, §42.1; PROJECT_MASTER §7.2, §7.4, 禁止 4, 禁止 6; ADR-002, ADR-014, ADR-027, ADR-029</td></tr>
+<tr><td><a href="#adr-031">ADR-031</a></td><td>The browser&#x27;s door is a push channel of four verbs, and <code>open</code> / <code>inject</code> are answered as instructions, not acts</td><td><span class="status accepted">accepted（2026-10-06，第四轮）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §34, §35, §37, §38.2/§38.3, §51, §53, §58 E2E, §60, §62; PROJECT_MASTER §7.1 V1-D, §14 第 9 项, 禁止 7, 禁止 8, 禁止 10; ADR-020, ADR-021, ADR-025, ADR-027, ADR-028, ADR-030</td></tr>
+<tr><td><a href="#adr-032">ADR-032</a></td><td>A compiled Context Pack is audited, not stored — §50&#x27;s <code>context_packs</code> table does not exist</td><td><span class="status accepted">accepted（2026-10-06，第五轮 V1 完成度清点）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §41, §42, §43, §49, §50, §54; PROJECT_MASTER §19 禁止 4, §14; ADR-002, ADR-011, ADR-013, ADR-019</td></tr>
+<tr><td><a href="#adr-033">ADR-033</a></td><td>§52&#x27;s L2 key is content hash <em>per role</em>: a dedup level must not delete evidence</td><td><span class="status accepted">accepted（2026-10-06，第五轮清点；migration v4 重建 <code>messages</code>）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §52, §51, §14, §49; PROJECT_MASTER §19 禁止 9, §7.1 V1-D; ADR-013, ADR-014, ADR-024</td></tr>
   </tbody>
 </table>
 
@@ -148,6 +151,15 @@ AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
     <tr><td>V1 第三轮 · 桌面壳八屏齐了，§14 第 7 项补上那只手</td><td>2026-10-06</td>
       <td><a href="../../V1第三轮开发报告.html">V1第三轮开发报告.html</a></td>
       <td>修订 ADR-029（§14 第 7 项的手势）与 ADR-030（缓存在 §42.1 选择路径上第二次咬人）；§26 V1-E ⏳→✅</td></tr>
+    <tr><td>V1 第四轮 · 浏览器的门：宿主与扩展对着写成</td><td>2026-10-06</td>
+      <td><a href="../../V1第四轮开发报告.html">V1第四轮开发报告.html</a></td>
+      <td>ADR-031（四个动词的推送通道；<code>open</code> / <code>inject</code> 答的是指令）并就地修订其
+        §35 origin 检查为两副面孔；§62 的 Context 门由 ◐ 转 ✅；V1 账上只剩 ADR-028 的入站采集</td></tr>
+    <tr><td>V1 第五轮 · 把整个 V1 逐条对回代码，缺的补上，欠的记清</td><td>2026-10-06</td>
+      <td><a href="../../V1第五轮开发报告.html">V1第五轮开发报告.html</a></td>
+      <td>ADR-032（编译出来的 Context Pack 只留审计行，§50 的 <code>context_packs</code> 表不存在）与
+        ADR-033（§52 的 L2 键含 role，migration v4 重建 <code>messages</code>）；修订 ADR-013 / ADR-016 / ADR-020；
+        §46 六问与 §47 五腿补齐，§28 与 §16 的 milestone 折叠第一次有测试</td></tr>
   </tbody>
 </table>
 <div class="callout">
@@ -271,7 +283,7 @@ added it must produce a separate field, never overwrite the compiled body.</p>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-013">ADR-013 — One `entities` table with a JSON payload, not one table per object</h2>
-<div class="meta"><div><k>Status</k><span>accepted (implementation deviation from V1_DEVELOPMENT §49, allowed by §50; key corrected by migration v3)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §49 (full table list), §50 (minimum database version)</span></div></div>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-06 (implementation deviation from V1_DEVELOPMENT §49, allowed by §50; key corrected by migration v3; the §52 L2 key it cited is now <a href="#adr-033">ADR-033</a>'s)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §49 (full table list), §50 (minimum database version); ADR-033</span></div></div>
 <h3>Context</h3>
 <p>§49 sketches <code>tasks</code>, <code>issues</code>, <code>decisions</code>, <code>artifacts</code>, <code>milestones</code>,
 <code>change_proposals</code>, <code>architecture_evolution_plans</code>, <code>drift_alerts</code> as separate tables. §50
@@ -296,8 +308,9 @@ release can migrate user data instead of discarding it. Nothing referenced <code
 as a foreign key, so the rebuild needed no other table.</p>
 <p>Charter, scope, architecture baseline, events, messages, evidence, snapshots and audit rows
 keep their own tables, because those are versioned or append-only records with real
-constraints (§9 <code>UNIQUE(project_id, version)</code>, §52 <code>UNIQUE(conversation_id, content_hash)</code>,
-§15 <code>events.seq</code>).</p>
+constraints (§9 <code>UNIQUE(project_id, version)</code>, §15 <code>events.seq</code>, and §52&#x27;s L2 key on
+<code>messages</code> — which <a href="#adr-033">ADR-033</a> later widened to <code>(conversation_id, role,
+content_hash)</code> and rebuilt through migration v4).</p>
 <h3>Consequences</h3>
 <ul>
 <li>Adding a field to a Task is a code change, not a migration. In V1 that is the right
@@ -412,7 +425,7 @@ floor it will be measured against, not something it has to be rewritten around.<
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-016">ADR-016 — What V1&#x27;s first implementation round deliberately does not include</h2>
-<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (MCP moved from deferred to built), 2026-10-06 (§38.5&#x27;s inbound half is owed — <a href="#adr-028">ADR-028</a>) and 2026-10-06 (V1-E desktop moved to built — <a href="#adr-029">ADR-029</a>)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</span></div></div>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (MCP moved from deferred to built), 2026-10-06 (§38.5&#x27;s inbound half is owed — <a href="#adr-028">ADR-028</a>), 2026-10-06 (V1-E desktop moved to built — <a href="#adr-029">ADR-029</a>), 2026-10-06 ×2 (V1-D&#x27;s browser door moved to built — <a href="#adr-031">ADR-031</a>; §14 item 7&#x27;s gesture is now a click, so this record no longer calls it a CLI-only stand-in) and 2026-10-06 (the fifth round&#x27;s audit: §14 item 10 got the end-to-end test its wording claimed, and two of §29&#x27;s seven Inbox kinds are recorded here as deliberately producer-less)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>PROJECT_MASTER §20, §24, §19 禁止 8; V1_DEVELOPMENT §61 stage list</span></div></div>
 <h3>Context</h3>
 <p>The first implementation round had to produce a runnable closed loop (Stage A/B/C/G plus the
 Map and Context engines) rather than a wide but unconnected surface. Several §13.2 items are
@@ -437,9 +450,15 @@ be tested for is <a href="#adr-029">ADR-029</a>&#x27;s decision. The CLI keeps r
 map, the same diff and the same context pack, so the UI arrived as a presentation layer over proven
 logic — which is what this bullet predicted before it existed, and what
 <a href="#adr-030">ADR-030</a> confirmed by exposing an event-chain defect through that layer.</li>
-<li><strong>Browser extension + Native Messaging (V1-D)</strong> — §34/§35. Needs the adapter contract to
-  settle first, which it now has; the MV3 side is the only part that genuinely requires a
-  browser session.</li>
+<li><strong>Browser extension + Native Messaging (V1-D)</strong> — <em>no longer deferred.</em> Built in the fourth
+  round as <code>crates/ingestion/src/native_messaging.rs</code> + <code>wp host serve|manifest</code> +
+  <code>apps/extension/</code> (MV3). §35&#x27;s five checks each own a refusal prefix, <code>open</code> and <code>inject</code>
+  answer with instructions the service worker carries out, and <code>send:false</code> is a field of the protocol
+  rather than a default. The adapter contract did settle first, and it stayed settled: the push goes through
+  <code>IngestPipeline::ingest_messages</code>, not an eighth adapter. What the round could not do is
+  <a href="#adr-031">ADR-031</a>&#x27;s honest remainder — the extension has not been loaded into a real Chrome,
+  so page-structure recognition and composer location are still human-verified, exactly like
+  <a href="#adr-029">ADR-029</a>&#x27;s webview pixels.</li>
 <li><strong>MCP server (V1-D/F)</strong> — <em>no longer deferred.</em> Built in the second round as
   <code>crates/mcp-server</code> + the <code>wp-mcp</code> binary; what shipped, and what still has not, is
   <a href="#adr-026">ADR-026</a>'s decision. One half of §38.5 remains open: the <em>inbound</em> direction —
@@ -452,23 +471,45 @@ logic — which is what this bullet predicted before it existed, and what
 <li><strong><code>ChatGptWebAdapter</code> beyond transcript import</strong> — reading a live web session is the
   extension's job, not the core's.</li>
 <li><strong>Auto-execute of an agent</strong> — §37 explicitly does not require it in V1.</li>
+<li><strong>Two of §29&#x27;s seven Inbox kinds have no durable producer</strong> — <em>recorded, not invented.</em>
+  <code>InboxService::list()</code> compiles five kinds from rows that already exist. A
+  <strong>merge candidate</strong> lives in <code>IngestReport.merge_candidates</code> — it is a fact about one
+  ingest run, and the log keeps that run as an event; an <strong>unverified claim</strong> is rendered where
+  it belongs, in the PROJECT_MAP and snapshot (<code>map.rs</code>&#x27;s <code>unverified_claim</code> rows),
+  not duplicated into a second queue. Giving either a table of its own would need an event type §16 does
+  not list, and 禁止 4 forbids a second state source beside the one the map already reads — so the gap is
+  written down here rather than built ahead of a trigger.</li>
 </ul>
 <h3>Consequences</h3>
 <p>§14's ten-point V1 acceptance list is exercised at the core-and-CLI level for items 1–6 and
 8–10 (charter → sources → entities → map → drift → pack → prepare → re-entry into the
 timeline); item 2's folder binding is the project's own <code>rootPath</code> read by
-<code>wp import git|files</code>, and item 7's gesture ("点击某个 Issue") is the CLI's
-<code>wp context build --select kind:id</code> rather than a click. The desktop shell
-(<a href="#adr-029">ADR-029</a>) renders §14&#x27;s screens, but its context tab compiles from a typed
-question only, so item 7&#x27;s gesture still has a window and not yet a click on an Issue. What remains
-open is that gesture, the <strong>V1-D browser extension</strong>, and the inbound half of §38.5
-(<a href="#adr-028">ADR-028</a>). The MCP transport closed in the second round, §55&#x27;s backup side,
-Stage H&#x27;s Adapter Health and Performance closed with it, and the V1-E desktop screens closed in the
-third — see <a href="#adr-021">ADR-021</a> through <a href="#adr-030">ADR-030</a>. PROJECT_MASTER §20
+<code>wp import git|files</code>. Item 7's gesture ("点击某个 Issue") started as the CLI&#x27;s
+<code>wp context build --select kind:id</code> and <strong>became a click</strong> in the third
+round: a drift or search row in the desktop shell carries its <code>kind:id</code> straight to the
+context tab and the pack says which record it is focused on; with neither a typed question nor a
+click the shell refuses rather than handing over an empty pack
+(<a href="#adr-029">ADR-029</a>). <strong>Item 10 waited until the fifth round for a test that
+proved it from the right side</strong> (<code>a_second_agent_turn_re_enters_the_timeline</code>):
+every import test before it asserted that a <em>re-push</em> adds nothing, which is §51's
+idempotency, not §14.10&#x27;s "the agent&#x27;s next result re-enters the timeline". The new test
+pushes genuinely new material and asserts the log grew past the old high-water <code>seq</code>,
+the timeline names the new issue, the map&#x27;s <em>Open Issues</em> gained exactly that line,
+both state hashes moved, the diff lists it, and a pack rebuilt afterwards carries the agent&#x27;s
+own words back out. What remained open after that — the <strong>V1-D browser
+extension and Native Messaging host</strong> — closed in the fourth round
+(<a href="#adr-031">ADR-031</a>). One item is still owed: the <em>inbound</em> half of §38.5, the
+workbench reading an agent&#x27;s conversation over MCP
+(<a href="#adr-028">ADR-028</a>), plus one check no test layer can stand in for — the extension has
+never been loaded into a real Chrome, exactly like <a href="#adr-029">ADR-029</a>&#x27;s webview
+pixels. The MCP transport closed in the second round, §55&#x27;s backup side, Stage H&#x27;s Adapter
+Health and Performance closed with it, and the V1-E desktop screens closed in the
+third — see <a href="#adr-021">ADR-021</a> through <a href="#adr-031">ADR-031</a>. PROJECT_MASTER §20
 states the current position.</p>
-<p>What is still deferred is deferred for the reason this record was written: each item needs a
-lifecycle (a browser session, a counterparty that speaks MCP inbound) that no core logic depends on,
-and 禁止 8 says a presentation layer over proven logic is built after the logic, not beside it.</p>
+<p>What is still deferred is deferred for the reason this record was written: it needs a
+counterparty that no core logic depends on. After the fourth round a browser session is no longer
+one of those — an agent willing to answer an inbound MCP request still is — and 禁止 8 says a
+presentation layer over proven logic is built after the logic, not beside it.</p>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-017">ADR-017 — The system keychain is explicit opt-in; the default secret store is a 0600 file</h2>
@@ -641,7 +682,7 @@ containing:</p>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
 <h2 id="adr-020">ADR-020 — V1&#x27;s user surface is the CLI; two test layers, one implementation</h2>
-<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (the e2e count grew; §38.5&#x27;s MCP door is now named) and 2026-10-06 (a second human surface exists — the desktop shell, on these same ports; see <a href="#adr-029">ADR-029</a>)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §61 (stage G), PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026, ADR-029</span></div></div>
+<div class="meta"><div><k>Status</k><span>accepted, amended 2026-10-05 (the e2e count grew; §38.5&#x27;s MCP door is now named), 2026-10-06 ×2 (a second human surface exists — the desktop shell, on these same ports; see <a href="#adr-029">ADR-029</a>. Then round four: a fourth layer for the browser&#x27;s door, and the e2e row §58 had been asking for — see <a href="#adr-031">ADR-031</a>) and 2026-10-06 ×3 (round five&#x27;s audit: e2e 22, views 23, and a library file for §28&#x27;s ladder — three counts that had been reported without a test behind them)</span></div><div><k>Date</k><span>2026-10-03</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §61 (stage G), §58, PROJECT_MASTER §14, §20; ADR-006, ADR-016, ADR-026, ADR-029, ADR-031</span></div></div>
 <h3>Context</h3>
 <p>§14's acceptance list is behavioural ("选中一个问题即可交给任意 Agent"), not architectural.
 With the Tauri shell (ADR-006) not built, the CLI was the only surface a <em>human</em> could actually
@@ -660,19 +701,40 @@ second door onto one implementation, not a second implementation.</p>
 <li><code>apps/cli/tests/golden.rs</code> (7 tests) drives the libraries against <code>tests/fixtures/</code> and
   pins compiled artifacts, including that the six drift rules fire on the material they are
   for and that replaying the same log twice yields the same state and map.</li>
-<li><code>apps/cli/tests/cli_e2e.rs</code> (18 tests as of 2026-10-06) spawns the real binary
+<li><code>apps/cli/tests/cli_e2e.rs</code> (22 tests as of 2026-10-06, round five) spawns the real binary
   (<code>env!("CARGO_BIN_EXE_wp")</code>) in a tempdir with <code>--db</code>, clearing <code>WP_DB</code> and
   <code>VIBE_SECURITY_ALLOW_KEYCHAIN</code> so nothing leaks between tests. The suite walks §14's loop:
   charter → transcript import → map save → pack → policy refusal → secret redaction →
   prepare → six exports + <code>.projectpack</code> → routing advice → layered search → bound-directory
   capture idempotence → capture refusal when unbound, and since the second round the same
   loop through <code>evidence</code>, <code>backup create|verify|restore</code>, <code>adapters</code>, <code>watch</code>,
-  <code>duplicates</code> and <code>diff --snapshot</code>.</li>
-<li><strong>A third layer, same rule (2026-10-06):</strong> <code>apps/desktop/tests/views.rs</code> (12 tests) drives
-  the shell&#x27;s view builders directly — no webview, no process. "Two test layers" means two layers
+  <code>duplicates</code> and <code>diff --snapshot</code>. The twentieth one is §58&#x27;s Browser row, and it re-implements
+  the length-prefixed codec <em>inside the test</em> rather than importing <code>read_frame</code> /
+  <code>write_frame</code>: a shared helper would let the host get away with bytes it never promised anybody.
+  Round five added two more, both for paths the layer had been claiming without exercising:
+  <code>a_second_agent_turn_re_enters_the_timeline</code> (§14.10, pushing genuinely new material instead of
+  re-pushing a batch) and <code>a_watch_pass_reports_the_file_that_is_no_longer_there</code> (§39&#x27;s removal
+  signal on the human-readable surface, which a library test cannot prove).</li>
+<li><strong>A third layer, same rule (2026-10-06):</strong> <code>apps/desktop/tests/views.rs</code> (23 tests as of
+  round five, from 12) drives the shell&#x27;s view builders directly — no webview, no process. "Two test layers" means two layers
   <em>per behaviour</em>: library plus real surface. The window&#x27;s surface is reachable as a function call
   rather than only as a click, which is what keeps §14&#x27;s claims testable there
-  (<a href="#adr-029">ADR-029</a>).</li>
+  (<a href="#adr-029">ADR-029</a>). The doubling is round five&#x27;s: the audit found that a registered command and a
+  view builder prove nothing about the screen they feed, so §46&#x27;s six questions and §47&#x27;s five legs now have
+  assertions of their own — including that a question the records cannot answer surfaces as a
+  <code>Gap</code> with a reason instead of a blank box.</li>
+<li><strong>A fourth, for the door that has no surface of its own (2026-10-06, round four):</strong>
+  <code>crates/ingestion/tests/native_messaging.rs</code> (13 tests) is the browser side&#x27;s equivalent of the views layer —
+  it drives <code>NativeHost::handle</code> / <code>serve</code> over in-memory pipes, so §35&#x27;s five refusals, the idempotent
+  re-push and "one bad frame does not end the session" are asserted where they are implemented. The extension&#x27;s own JS has
+  no test layer: §60&#x27;s cost rule says a Node test framework for four files is not V1&#x27;s, and the protocol the JS speaks is
+  already pinned from the Rust side.</li>
+<li><strong>Library layer, one file per ladder (2026-10-06, round five):</strong>
+  <code>crates/ingestion/tests/resolution.rs</code> (3 tests) is new not because the code is new but because
+  §28&#x27;s confidence ladder had never been asserted <em>as a ladder</em> — 1.0 explicit id, 0.95 exact title,
+  0.70 title overlap, and the 0.90 auto-merge line between them. Guard-engine&#x27;s tests judged results;
+  nothing pinned which rung a name lands on, which is the part that decides whether a record gets merged
+  silently.</li>
 <li>The e2e helper (<code>Workbench::ready</code>) is the smallest possible project — <code>init</code> with a
   charter, <code>import transcript</code>, <code>map save</code>. A new test starts from those three lines, not a
   bespoke fixture.</li>
@@ -749,8 +811,8 @@ something or to expect nothing.</p>
 </ul>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
-<h2 id="adr-022">ADR-022 — Watch signals are events with a verb in the payload, and they move no state</h2>
-<div class="meta"><div><k>Status</k><span>accepted</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §16, §39, §19; PROJECT_MASTER §7.2, §7.3, 禁止 9</span></div></div>
+<h2 id="adr-022">ADR-022 — Watch signals are events with a verb in the payload, and they produce no verdict</h2>
+<div class="meta"><div><k>Status</k><span>accepted, <strong>amended 2026-10-06</strong>（第五轮的清点：<code>deleted</code> 从来不是 <code>FILE_CHANGED</code> 的 payload（删除走 <code>ARTIFACT_DELETED</code>）、<code>FileScan::diff</code> 其实是 <code>FileScan::run</code>、而"不改任何状态"只对 git 那两个信号成立——文件信号确实 upsert / mark artifact 行，所以这一条改成"不产生结论"，标题同批改掉）</span></div><div><k>Date</k><span>2026-10-05</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §16, §39, §19; PROJECT_MASTER §7.2, §7.3, 禁止 9</span></div></div>
 <h3>Context</h3>
 <p>§39 asks for the working copy to be watched: which branch, what is uncommitted, which files
 appeared, changed or vanished. §16's catalogue lists <code>FILE_CHANGED</code> and <code>GIT_COMMIT</code> and says
@@ -772,21 +834,42 @@ because the wrong one quietly breaks the project's core claim:</p>
    <code>GIT_BRANCH_CHANGED</code> and <code>GIT_STATUS_CHANGED</code> (crates/domain/src/event_catalog.rs, listed in
    <code>ALL</code> so an unknown-type append still refuses them if they are ever removed).</li>
 <li><strong>One type for the file side</strong>, <code>FILE_CHANGED</code>, with the verb in the payload:
-   <code>payload.change ∈ {created, modified, deleted, baseline}</code> (<code>ScanKind</code>,
+   <code>payload.change ∈ {created, modified, baseline}</code> (<code>ScanKind</code>,
    crates/ingestion/src/file_scan.rs). The signal §39 wants is "this path changed, and here is
    how", and §16's list is a floor rather than a ceiling. One type keeps the dedup key honest —
    the payload is part of the event's identity, so the same path re-reported with the same hash
    appends nothing while a genuinely new hash does.
    <code>baseline</code> exists because the <em>first</em> pass over a directory is not a claim that anything
-   changed; it is a snapshot the next pass can diff against.</li>
+   changed; it is a snapshot the next pass can diff against.
+   <em>Amended 2026-10-06:</em> this list used to include <code>deleted</code>, and it never emitted it.
+   <code>ScanKind</code> does name <code>deleted</code> — a scan report has to say which paths vanished — but a removal
+   leaves the log as <code>ARTIFACT_DELETED</code> (item 5), not as a <code>FILE_CHANGED</code> claiming a content
+   change to bytes that are gone. The round-5 test
+   <code>a_vanished_file_leaves_a_removal_signal_and_no_new_verdict</code> asserts both halves: one removal
+   signal, and no <code>FILE_CHANGED</code> whose <code>change</code> reads <code>deleted</code>.</li>
 <li><strong>Watching is a pass, not a process.</strong> <code>GitFacts::watch_workspace</code> reads branch and status
    now, compares them against the snapshot the previous pass left in <code>settings</code>, and appends
-   only what differs. <code>FileScan::diff</code> does the same against recorded hashes. No thread, no
+   only what differs. <code>FileScan::run</code> does the same against recorded hashes and returns a
+   <code>FileScanReport</code> the caller can ask which paths were created, modified, deleted, or quiet. No thread, no
    timer, no filesystem notification API — so the same code runs behind a <code>wp watch</code> call and
    behind any future UI button, and nothing needs to be stopped or upgraded.</li>
-<li><strong>The reducer changes no state for any of these.</strong> They join <code>TEST_*</code> / <code>BUILD_*</code> in the
-   projector's "recorded, not folded" group (crates/state-engine/src/projector.rs), and each
-   becomes a Git- or File-typed evidence row. A dirty tree says <em>where</em> the work is.</li>
+<li><strong>They produce no verdict.</strong> <em>Amended 2026-10-06 — this item used to say "the reducer
+   changes no state for any of these", which is only true of half of them.</em> What is actually
+   guaranteed, and what the round-5 tests pin:
+   <ul>
+   <li><code>GIT_BRANCH_CHANGED</code> / <code>GIT_STATUS_CHANGED</code> join <code>TEST_*</code> / <code>BUILD_*</code> in the
+       projector&#x27;s truly unfolded group (crates/state-engine/src/projector.rs) — they become
+       Git-typed evidence rows and nothing else, which is why
+       <code>watch_signals_fold_into_no_project_state_at_all</code> can assert an identical state hash.</li>
+   <li>The file signals <em>do</em> fold: <code>FILE_CHANGED</code> upserts an artifact row and
+       <code>ARTIFACT_DELETED</code> marks it. Artifacts are part of <code>state_hash_of</code>, so a scan that
+       finds a file changes the hash — and that is the right answer, because an artifact row is a
+       statement about <em>a file</em>, which is exactly what the scan observed, not a statement about
+       whether the project&#x27;s work is done.</li>
+   <li>What no watch signal may touch is the judgement: <code>a_vanished_file_leaves_a_removal_signal_and_no_new_verdict</code>
+       asserts the task, issue, decision, proposal and drift collections are untouched after a
+       removal — 禁止 9 in a single test name. A dirty tree says <em>where</em> the work is.</li>
+   </ul></li>
 <li><strong>A vanished file gets <code>ARTIFACT_DELETED</code>, not a silent row edit</strong> — the artifact's history
    has to stay readable in the log, which is the only place §45 can point at.</li>
 </ol>
@@ -1136,8 +1219,8 @@ accept a file, but nothing in the workspace ever opens an MCP connection outward
    a new feature added to V1's scope — it is the same §38.5 item still standing.</li>
 <li><strong>The client is not built now, and its trigger is written down.</strong> Build it when a
    counterparty the user actually uses exposes its conversation history over an MCP server the
-   workbench can call. Until then the requirement has no counterparty, and 禁止 9 forbids
-   implementing an untriggered feature ahead of need. The trigger is a fact about the outside
+   workbench can call. Until then the requirement has no counterparty, and 禁止 8 (<code>为了未来可能性提前实现大量未触发功能</code>)
+   forbids implementing an untriggered feature ahead of need. The trigger is a fact about the outside
    world, so it is checked when the user reports one, not by polling a registry.</li>
 <li><strong>The shape is fixed now so the later work is a mapping, not a redesign</strong> — an
    <code>McpClientAdapter</code> in <code>crates/ingestion</code> answering §58's seven verbs:
@@ -1321,13 +1404,208 @@ which is what surfaced this at the surface instead of leaving it in a database n
 </ul>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
+<h2 id="adr-031">ADR-031 — The browser&#x27;s door is a push channel of four verbs, and <code>open</code> / <code>inject</code> are answered as instructions, not acts</h2>
+<div class="meta"><div><k>Status</k><span class="amended">accepted, amended 2026-10-06 — §35 的 origin 检查有两副面孔</span></div><div><k>Date</k><span>2026-10-06</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §34, §35, §36, §37, §38, §51, §53, §58, §60, §62; PROJECT_MASTER §7.1 V1-D, §14, 禁止 7, 禁止 8, 禁止 10; ADR-020, ADR-025, ADR-027, ADR-028, ADR-030</span></div></div>
+<h3>Context</h3>
+<p>V1-D 记了三轮 &#x201c;&#x25d0;&#x201d;，缺的从来不是读文件的那一半 —— <code>Manual Import</code>、transcript、CLI session 都有适配器了。缺的是 §34 与 §35 那一行：<em>活的网页会话</em>如何进入工作台，以及工作台编译好的 Context Pack 如何回到网页。§38.5 的 MCP 那扇门（<a href="#adr-026">ADR-026</a>、<a href="#adr-028">ADR-028</a>）读得出去，读不进来，所以它替不了这条链路。</p>
+<p>把这条链路落下来时有六个问题不能含糊，每一个都决定了 Core 的形状：</p>
+<ol>
+<li>Native Messaging 的宿主是一个<strong>被启动的进程</strong>，Chrome 只给它 stdin 与 stdout，不给参数，也不给第二个通道 —— 那 <code>--project</code> 这类作用域写在哪里？</li>
+<li>§34 要求扩展 <em>打开目标网页</em> 与 <em>准备输入内容</em>。宿主在浏览器里没有手，只有回话的嘴 —— 一个答不出的动词该不该留在契约里？</li>
+<li>§35 列了五项必须验证的东西，但没说失败长什么样；§62 Degradation 又要求失败必须可回答。</li>
+<li>浏览器推来的一批消息，是该写成第八个 <code>AgentAdapter</code>，还是走别的路？</li>
+<li>一个 CLI 进程（<code>wp context prepare</code>）退出之后，它编译的包怎么还能&#x201c;注入&#x201d;？</li>
+<li>扩展能不能信？<code>origin</code> 字段是谁在担保？</li>
+</ol>
+<h3>Decision</h3>
+<ol>
+<li><strong>一个版本串，四个动词，一问一答，永不监听。</strong> <code>codlas-nm/1</code>：
+<code>hello</code>（握手并报能力）、<code>capture</code>（导入新消息）、<code>open</code>（打开目标页）、
+<code>inject</code>（把包放进输入框）。没有端口、没有 socket、没有后台守护 —— 通道的生命周期就是 Chrome 给的那个 stdio。
+帧是四个小端字节的长度前缀加 UTF-8 JSON，长度超过 1 MiB 的帧在<strong>解析任何 JSON 之前</strong>就被拒掉，这是 §35 的
+<code>size</code> 检查唯一说得通的位置。</li>
+<li><strong><code>open</code> 与 <code>inject</code> 答的是指令，不是动作。</strong> 宿主回 <code>{action:"openTab",url}</code> 与
+<code>{action:"fillComposer",text,send:false}</code>，由 service worker 去执行。这不只是能力限制，它同时是 §37 与 §7.8 的形状：
+<code>send:false</code> 是协议里一个写死的字段，而不是一个可以商量的默认值 —— 工作台永远不递交。
+<code>inject</code> 的回复里带一句原文 <em>&#x201c;the workbench fills the composer; sending stays your action&#x201d;</em>，
+和 §62 Degradation 那句 fallback 同源，用户在一个地方看到的解释与在另一个地方看到的解释不是两份。</li>
+<li><strong>§35 的五项检查各自拥有一个拒绝前缀</strong>：<code>origin rejected</code> / <code>command rejected</code> /
+<code>payload rejected</code> / <code>size rejected</code> / <code>project scope rejected</code>，且一条坏帧只结束那一帧：
+会话继续（§62 的&#x201c;静默&#x201d;才是失败，报出来的不是）。测试按前缀断言，因此一个检查失效不会被另一个的失败掩盖。</li>
+<li><strong>浏览器推来的材料走 <code>IngestPipeline::ingest_messages</code>，不是新适配器。</strong>
+一个线程 = 一个 Source（§51 的游标粒度就是按 source 划的，这条本来就写在 <code>adapter.rs</code> 的模块说明里），
+<code>payload.source</code> 只能是 <code>chatgpt_web</code> 或 <code>generic_web</code>，身份与去重仍由 pipeline 决定。
+适配器是<em>读者</em>：它没有可以主动去读的地方 —— 活的会话在浏览器一侧，是被推的一方 —— 所以给它造一个第八个 trait 只会把
+&#x201c;谁来发起&#x201d;这件事说假。<code>ingest_messages</code> 的文档注释里那句 &#x201c;a browser push, a test fixture&#x201d;
+等的就是这条链路。</li>
+<li><strong><code>AgentAdapter::inject()</code> 在 V1 仍然对所有已交付适配器返回 <code>Ok(None)</code>，而这一次是结论不是缺口。</strong>
+CLI 进程退出后不留通道：要让它&#x201c;注入&#x201d;，就得先有一个常驻进程和一个作用域未定的连接，那是 §37 的
+<code>AUTO_EXECUTE</code> 与 禁止 10 的门口。真正的输送在宿主这一侧完成，而调用它的人是扩展弹窗里按下按钮的人。
+<a href="#adr-028">ADR-028</a> 欠的那一半（入站采集）仍然挂账，本决定不替它抵账。</li>
+<li><strong>信任锚是 manifest 的 <code>allowed_origins</code>，<code>origin</code> 字段只是自述</strong>：只有 manifest 列出的扩展 id 能连上宿主，
+这是 Chrome 给的；请求里的 <code>origin</code> 是扩展<em>报告</em>这批内容来自哪个页面，宿主仍按 §35 校验它（不在白名单就拒），
+但文档写清它是<em>一致性门</em>而非安全边界。同一个白名单同时管 <code>open</code> 的目标 URL，所以一个编译好的包
+无法把人带向 <code>chatgpt.com.evil.test</code> 这类形似域名。§53 与这条无关：密钥从来不走这条路。
+<br><strong>就地修订（同一轮，宿主与扩展对接时）：</strong>这条检查有<strong>两副面孔</strong>，因为四个动词里有两个字面意义上没有页面可报。
+<code>capture</code>（读哪个页面）与 <code>inject</code>（往哪个页面打字）必须报白名单里的 <code>https://&lt;host&gt;</code>；
+<code>hello</code>（自检）与 <code>open</code>（把某页带到前台）不经手任何页面材料，可以报扩展自己的
+<code>chrome-extension://&lt;id&gt;</code> —— 那枚 id 正是 Chrome 在 <code>allowed_origins</code> 上已经核过的东西，
+所以这不是让宿主相信一句新的自述。<code>open</code> 的目标 URL 仍走它自己的白名单，两件事没有互相顶替。
+测试是 <code>the_popup_names_itself_on_hello_and_open_and_a_page_on_the_page_commands</code>：同一枚扩展 origin 送到
+<code>capture</code> 与 <code>inject</code> 必须拿到 <code>origin rejected</code>，而带路径的 <code>chrome-extension://id/settings.html</code>
+不是 origin。</li>
+<li><strong>宿主是 <code>wp</code> 的子命令，不是第十三个成员。</strong> <code>wp host serve</code> 与
+<code>wp host manifest</code> 落在 <code>apps/cli/src/host.rs</code>，workspace 仍是 12 份 manifest
+（<a href="#adr-027">ADR-027</a> 的巡检没有为新成员改写）。manifest 命令写的是<strong>两</strong>个文件：Chrome 那个记录，
+和记录所指向的 wrapper 脚本 —— 因为 Chrome 不传参数，作用域只能烘焙在脚本里；路径逐单引号转义，
+带空格的路径在 macOS 上是常态。</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li><strong>serve 期间的 stdout 属于协议。</strong> 这是全 CLI 唯一一处人类可读输出必须走 stderr 的命令，
+写在这个模块的头部注释里；<code>host manifest</code> 仍然是正常打印，因为它是被人在终端里敲的。</li>
+<li>浏览器开着的时候会有第二个 SQLite 连接。一次 capture 是一个短事务，扩展没有任何本地状态（§34 的&#x201c;不负责&#x201d;清单），
+所以标签页丢了不丢工作bench 的东西。</li>
+<li>§58 的 E2E 那一行（Browser → Extension → Native → Event → State → Project Map → Select Issue → Context Pack →
+Browser Prepare）第一次真的跑通了：测试用<strong>自己重写的一份编解码</strong>驱动真二进制，不复用 crate 的 codec ——
+共享 helper 会替宿主隐瞒它自己发出去的字节，手写的那份不会。</li>
+<li>同一轮里 §53 在浏览器路径上被看见了一次：这个 fixture 项目 <code>allowCloudModel=false</code>，所以
+<code>--to chatgpt</code> 的包被<strong>整包拒绝</strong>，链路上走的是&#x201c;不声明去处&#x201d;的包。这不是绕行：
+§53 管的正是&#x201c;去处&#x201d;，而把包搬进浏览器的人是 §7.8 里那个动手的人。</li>
+<li>V1-D 仍然是 &#x25d0;，但缺的东西换了：采集这条链路（§34/§35/§38.2/§38.3 的活会话一半）已经落地，
+还欠的是 <a href="#adr-028">ADR-028</a> 的入站 MCP 采集。写回总控时按这一条写，不写成&#x201c;做完了&#x201d;。</li>
+<li>扩展与宿主之间是约定不是类型检查：JS 那边改了字段名，Rust 这边只会以 <code>payload rejected</code> 回答。
+因此 <code>apps/extension/README.md</code> 里那份协议表和这个模块必须同轮改动，这是本决定唯一的额外维护费。</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-032">ADR-032 — A compiled Context Pack is audited, not stored: §50&#x27;s <code>context_packs</code> table does not exist</h2>
+<div class="meta"><div><k>Status</k><span>accepted (2026-10-06, fifth round: the V1 completeness audit found the only §50 table name with no counterpart)</span></div><div><k>Date</k><span>2026-10-06</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §41, §42, §43, §49, §50, §54; PROJECT_MASTER §19 禁止 4, §14; ADR-002, ADR-011, ADR-013, ADR-019</span></div></div>
+<h3>Context</h3>
+<p>§49 lists <code>context_packs</code> and <code>context_pack_items</code>; §50 shrinks the list to a minimum
+database and keeps <code>context_packs</code> in it. The V1 completeness audit walked §50 line by line
+against <code>CREATE TABLE</code> statements in <code>crates/storage/src/schema.rs</code> and its migrations: every
+name in that minimum list has a table except <code>context_packs</code>. It is not collapsed into the
+<code>entities</code> table the way ADR-013 collapsed the record kinds — the rows were never written,
+because nothing reads them.</p>
+<p>What the pack is made of is already durable, somewhere else. Every successful compile writes
+exactly one <code>audit_logs</code> row (§54, <code>crates/context-engine/src/compiler.rs</code>): <code>produced_ref</code>
+is <code>context_pack:&lt;id&gt;</code>, <code>read_refs</code> are the records the pack cited, <code>redacted_refs</code> the §53 hits,
+plus the target agent, the weighting and the trimmed/kept outcome. That is the row a
+<code>context_packs</code> table would hold, and the item list a <code>context_pack_items</code> table would
+hold is the <code>read_refs</code> array. <code>wp audit</code> is the reader.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>V1 keeps no pack table.</strong> A pack is a pure function of (the state at compile time,
+the request, the budget, the policy) — §41's own definition of it as compiled output. Storing its
+items as rows creates a second copy of project facts that can outlive the records it was compiled
+from, which is 禁止 4 in its most literal form: the pack would say "issue I-1 is open" after I-1 was
+resolved, and the log would say otherwise, and nothing would reconcile them.</li>
+<li><strong>Traceability is satisfied by the audit row plus determinism.</strong> The audit row says which
+pack existed, what it read, what was redacted and where it was sent; re-running the same request
+recompiles the same bytes (<code>compiling_twice_over_the_same_log_yields_the_same_bytes</code>), so "what did the
+agent get" is answerable without a copy of the answer. §62's Traceability gate is met by that pair,
+not by a table.</li>
+<li><strong>The §41 pack is still a file when a human wants it.</strong> <code>wp context build --out</code> writes
+the markdown and ADR-019's <code>.projectpack</code> carries the state it was compiled from, both declaring
+themselves projections. Those are the two supported ways a pack leaves the process; neither is a
+database row.</li>
+<li><strong>Trigger to revisit, written down so it is not rediscovered.</strong> Build durable pack storage
+when a requirement asks to reproduce <em>byte-for-byte</em> what an agent was handed at a past moment
+<em>after the underlying records have been amended</em> — a replay-after-correction requirement, which
+V1 states nowhere. The honest shape at that point is a content-addressed artifact in the existing
+<code>evidence</code> table (the same subordination argument as ADR-019's zip), not a normalized
+<code>context_pack_items</code>.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>§50's minimum list is now met <em>by name</em> except for <code>context_packs</code>, and this record is the
+reason. A future audit that greps table names against §50 should read this entry before treating
+the miss as a defect.</li>
+<li>Nothing to migrate or back up beyond <code>audit_logs</code>, which §55 already exports — so the audit's
+"packs are invisible" concern is inverted: the pack <em>index</em> is the part that survives a restore.</li>
+<li>A pack's full text is not re-readable after the process exits. The audit row records
+<em>that</em> it was compiled and <em>what</em> it read; recovering <em>the exact prose</em> means recompiling.
+If that ever stops being acceptable, it is the trigger in item 4 firing, and this is the entry to
+amend.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-033">ADR-033 — §52&#x27;s L2 key is content hash <em>per role</em>: a dedup level must not delete evidence</h2>
+<div class="meta"><div><k>Status</k><span>accepted (2026-10-06, fifth round: found by walking §52 against the INSERT statement, not by a failing test)</span></div><div><k>Date</k><span>2026-10-06</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §52, §51, §49, §14 第 3 项; PROJECT_MASTER §19 禁止 9, §7.1 V1-D; ADR-013, ADR-014, ADR-024</span></div></div>
+<h3>Context</h3>
+<p>§52 gives three levels: L1 External ID, L2 "Content Hash + Role + Time Window", L3 semantic
+near-duplicate, and it says out loud that L3 only hints and never deletes. The first cut implemented
+L2 as <code>ON CONFLICT(conversation_id, content_hash) DO NOTHING</code> — the role was in the row but not in
+the key, and the time window was nowhere. Two consequences, both visible in a real conversation:</p>
+<ul>
+<li>the user types "继续" and the assistant also says "继续" — <strong>the second one is never stored</strong>,
+  because the pair (conversation, hash) already existed;</li>
+<li>the same short phrase genuinely said twice, an hour apart — the second occurrence disappears.</li>
+</ul>
+<p>A round-1 test pinned the behaviour as it was implemented
+(<code>full_text_matches_a_whole_token_not_a_piece_of_a_chinese_run</code> era, ADR-018) so nothing looked wrong:
+re-pushing a transcript stayed idempotent, which is what §51 asks for. What was being sacrificed is
+what 禁止 9 protects from the other direction — captured material is evidence, and an
+ingestion layer that silently drops turns is a smaller version of the same "chat history is
+editable memory" failure. The dedup level exists to stop <em>double counting</em>, not to stop
+<em>storing</em>.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>The role joins the identity key.</strong> L2 is now <code>(conversation_id, role,
+content_hash)</code>, created as <code>idx_messages_l2</code> by <strong>migration v4</strong>
+(<code>messages_dedup_key_includes_role</code>) in <code>crates/storage/src/schema.rs</code>. Same text, different
+role = two turns, both real.</li>
+<li><strong>The time window deliberately does not join it, and that is a reading of §52 rather than an
+omission of it.</strong> §51 requires re-ingestion to be idempotent; a message&#x27;s timestamp can be
+absent (manual paste) or jittery (a snapshot export re-emitted later). A time component inside a
+UNIQUE key therefore makes the property that matters most — "pushing the same file twice adds
+nothing" — depend on data that is optional. "Same text, same role, said again later" is exactly
+what L3 exists for: <code>wp duplicates</code> reports it as a hint and touches no row (ADR-024).</li>
+<li><strong>The table is rebuilt, not altered.</strong> The baseline declared the uniqueness as an inline
+<code>UNIQUE(conversation_id, content_hash)</code> constraint, and SQLite will not drop the automatic index
+behind one — so v4 creates <code>messages_v4</code>, copies, drops, renames and recreates the three indexes,
+which is the same shape ADR-013&#x27;s migration v3 used for <code>entities</code>. Forward migration, not an edit
+to v1: a user&#x27;s existing database has to upgrade rather than be discarded (§49&#x27;s purpose).</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>One row per (conversation, role, text) is still guaranteed, so the idempotency assertions
+  ADR-014 and §51 rely on are unchanged — re-running an adapter adds no message and no event
+  (<code>re_running_an_adapter_yields_no_duplicates_and_one_cursor_move</code> still passes).</li>
+<li>A repeated identical turn inside one conversation is now <strong>stored</strong> and reported by L3 as a
+  near-duplicate hint. Counting changes: a transcript where the user says "继续" five times yields
+  five messages rather than one. That is the honest record of what happened.</li>
+<li>§52&#x27;s "Time Window" is now a documented, reasoned non-implementation rather than a silent gap.
+  If a future requirement needs it, it belongs to L3&#x27;s window parameter, not to the identity key.</li>
+<li><a href="#adr-013">ADR-013</a> quoted the old key as the example of a constraint worth its own
+  table; that sentence is amended to point here.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
 <h2 id="provenance">六、来源与变更</h2>
 <ul>
   <li>本页正文由 <code>docs/adr/ADR-001…ADR-027</code> 共 <b>19</b> 份 markdown 汇总而成，
     汇总于 2026-10-05。<strong>决定的措辞未作任何修改</strong>；改变的只有载体。</li>
   <li><b>ADR-028</b>（2026-10-06）是介质变更之后的第一条：直接在 HTML 里追加，没有对应的 <code>.md</code> 原文，
     因此上面的"19 份"仍然准确。</li>
-  <li><b>ADR-029</b> 与 <b>ADR-030</b>（2026-10-06，第三轮）同样直接在页内追加；本页总条数为 <b>22</b>。
+  <li><b>ADR-032</b> 与 <b>ADR-033</b>（2026-10-06，第五轮：V1 完成度清点）同样直接在页内追加，本页总条数为
+    <b>25</b>。这一轮的来源不是新写的能力，而是把 <code>V1_DEVELOPMENT.md</code> 的 §14 / §38 / §46 / §47 / §49 / §50 / §52 / §58 / §61 / §62
+    逐条对回代码：清点找到的东西里，两条是决定（pack 不落表、L2 的键含 role），其余是实现或测试补齐，
+    记在 <a href="../RECORDS.md">docs/RECORDS.md</a> 与
+    <a href="../../V1第五轮开发报告.html">V1 第五轮开发报告</a>。同一轮修订
+    <a href="#adr-013">ADR-013</a>（它引用的 §52 键已变）、<a href="#adr-016">ADR-016</a>（§14 第 10 项现在真有测试，
+    并记下 §29 的两种 Inbox 类别按设计没有持久生产者）、<a href="#adr-020">ADR-020</a>（测试层数与条数）
+    与 <a href="#adr-022">ADR-022</a>——后者是本轮唯一<strong>连标题一起改</strong>的一条：
+    "move no state" 里 <code>deleted</code> 从未被 <code>FILE_CHANGED</code> 发出、<code>FileScan::diff</code> 其实是
+    <code>FileScan::run</code>，而"不折叠"只对 git 的两个信号成立（文件信号确实写 artifact 行，artifacts 在
+    <code>state_hash_of</code> 里），于是改为"produce no verdict"：监听信号不许触碰的是<em>结论</em>。</li>
+  <li><b>ADR-031</b>（2026-10-06，第四轮：V1-D 的浏览器门）同样直接在页内追加，本页总条数曾为 <b>23</b>。
+    同一轮把 <a href="#adr-020">ADR-020</a> 的测试层数补到 <code>native_messaging</code> 与第 20 条 e2e，
+    并把 <a href="#adr-016">ADR-016</a> 的后果段改到与本页一致：浏览器门已由"暂缓"改"已建"，
+    §14 第 7 项从"CLI 的替身"改写成真正的点击（ADR-029，第三轮）。ADR-031 自身在同轮就地修订一次
+    （§35 的 origin 检查有两副面孔）。</li>
+  <li><b>ADR-029</b> 与 <b>ADR-030</b>（2026-10-06，第三轮）同样直接在页内追加；本页总条数曾为 <b>22</b>。
     同一轮就地修订了 <a href="#adr-016">ADR-016</a>（V1-E 由"暂缓"改"已建"）、
     <a href="#adr-020">ADR-020</a>（第三层测试与 19 条 e2e）、
     <a href="#adr-027">ADR-027</a>（manifest 巡检纳入 <code>apps/desktop</code>）与

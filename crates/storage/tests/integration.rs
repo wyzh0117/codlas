@@ -7,7 +7,7 @@ use vibe_core::judge::RuleJudge;
 use vibe_core::ports::{SearchFilters, Repositories};
 use vibe_core::project_service::{CharterDraft, ProjectService};
 use vibe_domain::{event_catalog, ActorType, EventStatus, Message, MessageRole};
-use vibe_storage::SqliteStore;
+use vibe_storage::{MIGRATIONS, SCHEMA_VERSION, SqliteStore};
 
 struct Fixture {
     repos: Repositories,
@@ -276,6 +276,291 @@ fn duplicate_messages_are_dropped_on_reingest() {
     assert_eq!(second.duplicate_count, 2);
     assert_eq!(
         repos.conversations.list_messages(&conversation.id).unwrap().len(),
+        2
+    );
+}
+
+/// Dedup is scoped per conversation, so a test that counts duplicates needs a source and
+/// a thread of its own.
+fn thread(repos: &Repositories, project_id: &str, label: &str) -> String {
+    let source = vibe_domain::Source {
+        id: vibe_domain::new_id(),
+        project_id: project_id.to_string(),
+        r#type: vibe_domain::SourceType::GenericCli,
+        external_id: Some(format!("session-{label}")),
+        display_name: format!("cli session {label}"),
+        metadata: serde_json::json!({}),
+    };
+    repos.conversations.upsert_source(&source).unwrap();
+    let conversation = vibe_domain::Conversation {
+        id: vibe_domain::new_id(),
+        project_id: project_id.to_string(),
+        source_id: source.id.clone(),
+        external_conversation_id: Some(format!("thread-{label}")),
+        title: Some(label.to_string()),
+        started_at: None,
+        last_seen_at: None,
+    };
+    repos.conversations.upsert_conversation(&conversation).unwrap();
+    conversation.id
+}
+
+/// §52's L2 is content hash *and* role. The same words from the user and from the
+/// assistant are two facts about the conversation, and captured material is evidence:
+/// an answer that echoes its own prompt must not be swallowed by the prompt.
+#[test]
+fn the_same_text_under_two_roles_is_two_messages() {
+    let f = fixture();
+    let project = f.projects.create_project("Echo", None, None, None).unwrap();
+    let conversation = thread(&f.repos, &project.id, "echo");
+    let observed = vibe_domain::now();
+
+    let batch = vec![
+        Message::new(
+            conversation.clone(),
+            MessageRole::User,
+            "继续".into(),
+            Some("m-1".into()),
+            observed,
+        ),
+        Message::new(
+            conversation.clone(),
+            MessageRole::Assistant,
+            "继续".into(),
+            Some("m-2".into()),
+            observed,
+        ),
+    ];
+    let first = f
+        .repos
+        .conversations
+        .insert_messages(&conversation, &batch)
+        .unwrap();
+    assert_eq!(
+        first.inserted.len(),
+        2,
+        "the assistant's echo is not a copy of the user's prompt"
+    );
+    assert_eq!(first.duplicate_count, 0);
+
+    let stored = f.repos.conversations.list_messages(&conversation).unwrap();
+    assert_eq!(stored.len(), 2, "both turns survived");
+    assert_eq!(
+        stored.iter().filter(|m| m.content == "继续").count(),
+        2,
+        "the text is identical; only the role differs"
+    );
+    assert_eq!(
+        stored[0].content_hash, stored[1].content_hash,
+        "same bytes, so the hash alone cannot tell them apart"
+    );
+    assert_eq!(stored[0].role, MessageRole::User);
+    assert_eq!(stored[1].role, MessageRole::Assistant);
+    assert_eq!(
+        f.repos
+            .conversations
+            .recent_messages(&project.id, 5)
+            .unwrap()
+            .len(),
+        2
+    );
+
+    // §51: the role widened the key, the idempotency did not loosen. The same batch,
+    // with fresh local ids as an adapter would send on a re-push, still lands nowhere.
+    let replay = batch
+        .iter()
+        .map(|m| Message {
+            id: vibe_domain::new_id(),
+            ..m.clone()
+        })
+        .collect::<Vec<_>>();
+    let second = f
+        .repos
+        .conversations
+        .insert_messages(&conversation, &replay)
+        .unwrap();
+    assert!(second.inserted.is_empty(), "a re-push adds no message");
+    assert_eq!(second.duplicate_count, 2);
+    assert_eq!(
+        f.repos.conversations.list_messages(&conversation).unwrap().len(),
+        2,
+        "and nothing was deleted on the way"
+    );
+}
+
+/// The widening stops at the role: one role saying the same thing twice is still the
+/// same statement, and that is what §52 exists to stop double-counting.
+#[test]
+fn the_same_text_twice_in_one_role_is_still_one_duplicate() {
+    let f = fixture();
+    let project = f.projects.create_project("Repeat", None, None, None).unwrap();
+    let conversation = thread(&f.repos, &project.id, "repeat");
+    let started = vibe_domain::now();
+
+    let repeated = f
+        .repos
+        .conversations
+        .insert_messages(
+            &conversation,
+            &[
+                Message::new(
+                    conversation.clone(),
+                    MessageRole::User,
+                    "继续".into(),
+                    Some("m-1".into()),
+                    started,
+                ),
+                Message::new(
+                    conversation.clone(),
+                    MessageRole::User,
+                    "继续".into(),
+                    Some("m-2".into()),
+                    started + chrono::Duration::minutes(9),
+                ),
+            ],
+        )
+        .unwrap();
+    assert_eq!(repeated.inserted.len(), 1);
+    assert_eq!(
+        repeated.duplicate_count, 1,
+        "the same role repeating itself is one message; the time apart is L3's business, \
+         which hints and deletes nothing"
+    );
+    assert_eq!(
+        f.repos.conversations.list_messages(&conversation).unwrap().len(),
+        1
+    );
+}
+
+/// The message key changed, so an existing database has to change with it. Built at the
+/// previous schema version by hand — the same migrations the store would have run, minus
+/// the newest — then opened, which is the only upgrade path a user's workbench takes.
+#[test]
+fn a_database_from_the_previous_schema_upgrades_its_message_key() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let file = dir.path().join("workbench.db");
+    let hash = vibe_domain::content_hash("登录接口报错，返回 500");
+    let conversation_id = {
+        let conn = rusqlite::Connection::open(&file).expect("create database");
+        conn.execute_batch("PRAGMA foreign_keys = ON;")
+            .expect("foreign keys");
+        conn.execute_batch(
+            "CREATE TABLE schema_migrations (
+               version INTEGER PRIMARY KEY,
+               name TEXT NOT NULL,
+               applied_at TEXT NOT NULL
+             );",
+        )
+        .expect("version table");
+        for migration in MIGRATIONS.iter().filter(|m| m.version < SCHEMA_VERSION) {
+            conn.execute_batch(migration.sql).expect("apply migration");
+            conn.execute(
+                "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",
+                rusqlite::params![migration.version, migration.name, "2026-10-05T00:00:00+00:00"],
+            )
+            .expect("record version");
+        }
+        conn.execute_batch(
+            "INSERT INTO projects (id, name, created_at, updated_at)
+               VALUES ('p-1', 'Legacy', '2026-10-05T00:00:00+00:00', '2026-10-05T00:00:00+00:00');
+             INSERT INTO sources (id, project_id, type, external_id, display_name)
+               VALUES ('s-1', 'p-1', 'generic_cli', 'session-1', 'cli session');
+             INSERT INTO conversations (id, project_id, source_id, external_conversation_id, title)
+               VALUES ('c-1', 'p-1', 's-1', 'thread-1', 'upgrade');",
+        )
+        .expect("seed rows");
+        conn.execute(
+            "INSERT INTO messages (id, conversation_id, project_id, role, content, content_hash, \
+                external_message_id, created_at, observed_at) \
+             VALUES ('m-1', 'c-1', 'p-1', 'user', '登录接口报错，返回 500', ?1, NULL, NULL, \
+                '2026-10-05T00:00:00+00:00')",
+            rusqlite::params![hash],
+        )
+        .expect("old capture");
+        "c-1".to_string()
+    };
+    assert_eq!(
+        rusqlite::Connection::open(&file)
+            .expect("reopen")
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_migrations",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .expect("version"),
+        SCHEMA_VERSION - 1,
+        "the fixture really is one migration behind"
+    );
+
+    let store = SqliteStore::open(&file).expect("upgrade on open");
+    assert_eq!(store.schema_version().unwrap(), SCHEMA_VERSION);
+
+    // The captured row is evidence: the rebuild carried it over untouched.
+    let repos = store.repositories();
+    let kept = repos.conversations.list_messages(&conversation_id).unwrap();
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0].content, "登录接口报错，返回 500");
+    assert_eq!(kept[0].role, MessageRole::User);
+
+    let unique: Vec<String> = {
+        let conn = rusqlite::Connection::open(&file).expect("read schema");
+        // PRAGMA rather than a schema query: the automatic index a table's inline
+        // UNIQUE constraint leaves behind is exactly the thing that has to be gone.
+        let mut stmt = conn
+            .prepare("PRAGMA index_list('messages')")
+            .expect("index list");
+        let names = stmt
+            .query_map([], |row| {
+                let name: String = row.get(1)?;
+                let is_unique: i64 = row.get(2)?;
+                Ok((name, is_unique))
+            })
+            .expect("rows")
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .expect("read rows");
+        let mut out: Vec<String> = names
+            .into_iter()
+            .filter(|(_, is_unique)| *is_unique == 1)
+            .map(|(name, _)| name)
+            .collect();
+        out.sort();
+        out
+    };
+    assert!(
+        unique.iter().any(|name| name == "idx_messages_l2"),
+        "the role-aware key is in place: {unique:?}"
+    );
+    assert!(
+        !unique.iter().any(|name| name.starts_with("sqlite_autoindex_messages_2")),
+        "the hash-only constraint the baseline declared is gone: {unique:?}"
+    );
+
+    // And the upgraded store answers to the new key: the assistant's echo of the very
+    // same text is now writable, which the old hash-only key refused.
+    let outcome = repos
+        .conversations
+        .insert_messages(
+            &conversation_id,
+            &[Message::new(
+                conversation_id.clone(),
+                MessageRole::Assistant,
+                "登录接口报错，返回 500".into(),
+                None,
+                vibe_domain::now(),
+            )],
+        )
+        .expect("insert after upgrade");
+    assert_eq!(
+        outcome.inserted.len(),
+        1,
+        "echoed text under a second role is a second message"
+    );
+    assert_eq!(
+        repos
+            .conversations
+            .list_messages(&conversation_id)
+            .unwrap()
+            .len(),
         2
     );
 }

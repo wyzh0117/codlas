@@ -3,10 +3,10 @@
 //! what a user reads when returning to a project (§32, §33; PROJECT_MASTER §10).
 
 use vibe_core::event_store::{EventDraft, EventStore};
-use vibe_core::ports::Repositories;
+use vibe_core::ports::{EntityStore, Repositories};
 use vibe_core::project_service::{BaselineDraft, CharterDraft, ProjectService};
 use vibe_domain::{
-    event_catalog, ActorType, ArchitectureInvariant, ProjectMap, Snapshot,
+    event_catalog, ActorType, ArchitectureInvariant, EntityKind, ProjectMap, Snapshot,
 };
 use vibe_state_engine::{ProjectMapCompiler, Reducer, SnapshotService, MAP_SECTIONS};
 use vibe_storage::SqliteStore;
@@ -329,4 +329,60 @@ fn decisions_that_were_superseded_stay_visible_in_the_map() {
         !section.contains("keep the repository port\n"),
         "a superseded decision must not sit in the active section"
     );
+}
+
+#[test]
+fn a_milestone_is_planned_until_a_reach_event_moves_it() {
+    let b = bench("milestones");
+    b.events
+        .append(
+            EventDraft::new(&b.project_id, event_catalog::MILESTONE_CREATED)
+                .user()
+                .subject("milestone", "m-1")
+                .payload(serde_json::json!({ "milestoneId": "m-1", "title": "V1 core loop" })),
+        )
+        .expect("milestone created");
+
+    let state = b.reducer.project_state(&b.project_id).expect("fold");
+    assert_eq!(state.milestones.len(), 1);
+    assert!(!state.milestones[0].reached);
+    assert!(state.milestones[0].reached_at.is_none());
+    let map = b.maps.compile(&b.project_id).expect("compile");
+    assert!(
+        map.markdown.contains("Milestone V1 core loop — planned"),
+        "{}",
+        map.markdown
+    );
+
+    b.events
+        .append(
+            EventDraft::new(&b.project_id, event_catalog::MILESTONE_REACHED)
+                .user()
+                .subject("milestone", "m-1")
+                .payload(serde_json::json!({ "milestoneId": "m-1" })),
+        )
+        .expect("milestone reached");
+
+    let after = b.reducer.project_state(&b.project_id).expect("refold");
+    assert_eq!(
+        after.milestones.len(),
+        1,
+        "a reach updates the milestone, it is not a second one"
+    );
+    assert!(after.milestones[0].reached);
+    assert!(after.milestones[0].reached_at.is_some());
+    assert_eq!(
+        after.milestones[0].title, "V1 core loop",
+        "the reach event carries no title, so it must not rename the milestone"
+    );
+    let map = b.maps.compile(&b.project_id).expect("recompile");
+    assert!(map.markdown.contains("Milestone V1 core loop — reached"));
+
+    let cached: Vec<vibe_domain::Milestone> = b
+        .repos
+        .entities
+        .entities_of(EntityKind::Milestone, &b.project_id)
+        .expect("entities_of");
+    assert_eq!(cached.len(), 1, "the cache mirrors the fold (§24)");
+    assert!(cached[0].reached);
 }

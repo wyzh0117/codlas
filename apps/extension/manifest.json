@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Codlas 采集",
+  "version": "0.1.0",
+  "description": "把网页里的 AI 会话交给本地工作台，并把工作台准备的上下文包写进输入框。不联网、不建库、永不代发。",
+  "permissions": ["nativeMessaging", "activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://*.chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://*.chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Codlas 采集",
+    "default_popup": "popup.html"
+  }
+}

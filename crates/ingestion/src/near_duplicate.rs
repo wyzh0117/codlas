@@ -1,9 +1,12 @@
 //! §52's L3: near-duplicate *hints*, never a deletion.
 //!
-//! L1 (external id) and L2 (content hash + role + window) are decided at insert time and
-//! drop material, because "the same bytes again" is a fact a hash can prove. L3 is the
-//! soft case: two turns that say almost the same thing. §52's one rule for it is that the
-//! workbench **only hints** — 只提示，不直接删除 — so this module reads messages, returns
+//! L1 (external id) and L2 (content hash + role) are decided at insert time and drop
+//! material, because "the same bytes again" is a fact a hash can prove. §52's L2 also names
+//! a time window, and the store keeps it out of the key on purpose: §51 makes a re-push
+//! idempotent, and a source timestamp can be absent or jittery, so identical text arriving
+//! later stays this level's business — a hint, never a deletion. L3 is the soft case: two
+//! turns that say almost the same thing. §52's one rule for it is that the workbench
+//! **only hints** — 只提示，不直接删除 — so this module reads messages, returns
 //! pairs, and writes nothing at all. A hint reaching the log as a fact would be a second
 //! state source (禁止 4), and quietly merging two turns would destroy the trace §17 exists
 //! to keep.

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <title>Codlas 采集</title>
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --panel: #fff;
+        --ink: #1c2126;
+        --soft: #5b6772;
+        --line: #e2e6ea;
+        --accent: #2f6f6a;
+        --accent-soft: #e6f1ef;
+        --warn: #a3313a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        width: 336px;
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 13px/1.55 -apple-system, "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+      }
+      header { padding: 12px 14px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+      h1 { margin: 0; font-size: 14px; font-weight: 650; }
+      .where, .project { margin-top: 3px; font-size: 11px; color: var(--soft); word-break: break-all; }
+      .project b { color: var(--accent); font-weight: 600; }
+      section { padding: 10px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
+      h2 { margin: 0 0 7px; font-size: 11px; font-weight: 600; color: var(--soft); letter-spacing: .02em; }
+      button {
+        appearance: none; font: inherit; width: 100%; text-align: left; cursor: pointer;
+        padding: 7px 10px; margin: 0 0 6px; border: 1px solid var(--line); border-radius: 8px;
+        background: var(--panel); color: var(--ink);
+      }
+      button:last-child { margin-bottom: 0; }
+      button:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+      button:disabled { opacity: .55; cursor: default; }
+      label { display: block; font-size: 11px; color: var(--soft); margin: 0 0 4px; }
+      input[type="text"] {
+        width: 100%; font: inherit; padding: 6px 8px; margin: 0 0 6px;
+        border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink);
+      }
+      input[type="file"] { width: 100%; font: inherit; font-size: 11px; color: var(--soft); margin: 0 0 6px; }
+      .hint { margin: 5px 0 0; font-size: 11px; color: var(--soft); }
+      #status { max-height: 240px; overflow-y: auto; background: #fbfcfd; }
+      #status p { margin: 0 0 5px; font-size: 11px; word-break: break-word; }
+      #status p:last-child { margin-bottom: 0; }
+      #status .err { color: var(--warn); }
+      #status .meta { color: var(--soft); }
+      #status .empty { color: var(--soft); }
+      footer { padding: 8px 14px 12px; font-size: 10px; color: var(--soft); background: var(--panel); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Codlas 采集</h1>
+      <div class="where" id="where">正在读取当前标签页…</div>
+      <div class="project" id="project" hidden></div>
+    </header>
+
+    <section>
+      <h2>连接</h2>
+      <button id="hello" type="button">连接自检</button>
+    </section>
+
+    <section>
+      <h2>交给工作台</h2>
+      <button id="captureSelection" type="button">采集选中</button>
+      <button id="captureSession" type="button">导入本会话</button>
+      <p class="hint">导入本会话读的是页面上已有的消息轮次；认不出结构时会照实说，不编内容。</p>
+    </section>
+
+    <section>
+      <h2>收回工作台</h2>
+      <label for="url">目标网页</label>
+      <input id="url" type="text" spellcheck="false" value="https://chatgpt.com/" />
+      <button id="open" type="button">打开目标网页</button>
+      <label for="pack">上下文包文件（本机读取，只当文本）</label>
+      <input id="pack" type="file" accept=".txt,.md,.json,.markdown,text/plain" />
+      <p class="hint" id="packInfo">还没选文件。</p>
+      <button id="inject" type="button" disabled>把包写进输入框</button>
+      <p class="hint">只会把文字写进输入框。发送由你来按（§7.8）。</p>
+    </section>
+
+    <section id="status">
+      <h2>状态</h2>
+      <p class="empty" id="placeholder">还没有动作。</p>
+    </section>
+
+    <footer>扩展不联网、不建本地库；一切判断在桌面核心那边。</footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

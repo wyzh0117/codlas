@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use vibe_cli::app::{self, App};
-use vibe_cli::{backup, baseline, capture, context, export, policy, views};
+use vibe_cli::{backup, baseline, capture, context, export, host, policy, views};
 use vibe_core::error::Result;
 
 #[derive(Parser)]
@@ -64,6 +64,10 @@ enum Command {
     /// §55 / §62 Recovery: back the whole workbench up, verify a file, restore it.
     #[command(subcommand)]
     Backup(backup::BackupCommand),
+    /// §34/§35: the browser's door — serve the Native Messaging channel, or write the
+    /// Chrome record that launches it.
+    #[command(subcommand)]
+    Host(host::HostSubcommand),
 }
 
 fn main() {
@@ -88,5 +92,6 @@ fn run() -> Result<()> {
         Command::Secret(inner) => policy::dispatch_secret(&runtime, project, inner),
         Command::Export(inner) => export::dispatch(&runtime, project, inner),
         Command::Backup(inner) => backup::dispatch(&runtime, inner),
+        Command::Host(inner) => host::dispatch(&runtime, project, inner),
     }
 }

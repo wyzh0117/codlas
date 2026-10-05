@@ -236,10 +236,146 @@ screens.map = () =>
   });
 
 /* ── 总览 ─────────────────────────────────────────────────────────────── */
+/* §46's six questions travel in the payload (`view.questions`), so this screen renders a list it
+ * was handed rather than a second copy of the contract. A `gaps` entry is an announced absence —
+ * the shell does not fill one in. */
 screens.overview = () =>
   guard(async () => {
     const view = await invoke("overview_view");
-    const head = screen("总览", `seq ${view.lastSeq} · ${view.appliedEvents} 条已接受事件折叠 · ${clock(view.builtAt)}`);
+    const head = screen(
+      "总览",
+      `${esc(view.projectName)} · seq ${esc(view.lastSeq)} · ${esc(view.appliedEvents)} 条已接受事件折叠 · ${clock(view.builtAt)}`
+    );
+    const MARKS = ["①", "②", "③", "④", "⑤", "⑥"];
+    const ask = (index) => {
+      const card = el("div", "card", `<h2>${MARKS[index]} ${esc(view.questions[index])}</h2>`);
+      const gap = (view.gaps || []).find((item) => item.label === view.questions[index]);
+      if (gap) card.appendChild(el("p", "gap", esc(gap.reason)));
+      return card;
+    };
+
+    const first = ask(0);
+    if (view.intent) {
+      first.appendChild(el("p", "", esc(view.intent.originalProblem)));
+      first.appendChild(el("p", "note", `核心价值：${esc(view.intent.coreValue)}`));
+      if (view.intent.targetUser)
+        first.appendChild(el("p", "note", `给谁用：${esc(view.intent.targetUser)}`));
+      if (view.intent.mustHave.length)
+        first.appendChild(el("p", "kind", `必须有：${view.intent.mustHave.map(esc).join("、")}`));
+      first.appendChild(
+        el(
+          "p",
+          "kind",
+          `Charter v${esc(view.intent.version)}${view.intent.locked ? " · 已由用户锁定（§7.4）" : " · 未锁定"}`
+        )
+      );
+    }
+    head.appendChild(first);
+
+    const second = ask(1);
+    second.appendChild(
+      el(
+        "table",
+        "grid",
+        `<tbody><tr><th>阶段</th><td>${view.phase.phase ? esc(view.phase.phase) : "没有声明过阶段"}</td></tr>` +
+          `<tr><th>项目状态</th><td><span class="pill">${esc(view.phase.status)}</span></td></tr>` +
+          `<tr><th>里程碑</th><td>${view.phase.milestones.length ? view.phase.milestones.map(esc).join("；") : "—"}</td></tr></tbody>`
+      )
+    );
+    head.appendChild(second);
+
+    const third = ask(2);
+    if (view.recent.length) {
+      const table = el(
+        "table",
+        "grid",
+        "<thead><tr><th>seq</th><th>时间</th><th>类型</th><th>摘要</th></tr></thead>"
+      );
+      const body = el("tbody");
+      view.recent.forEach((event) => {
+        body.appendChild(
+          el(
+            "tr",
+            "",
+            `<td class="num">${esc(event.seq)}</td><td>${clock(event.at)}</td>` +
+              `<td><code>${esc(event.kind)}</code></td><td>${esc(event.summary)}</td>`
+          )
+        );
+      });
+      table.appendChild(body);
+      third.appendChild(table);
+      const more = el("div", "actions");
+      const toLog = el("button", "act", "整条日志 →");
+      toLog.addEventListener("click", () => go("timeline"));
+      more.appendChild(toLog);
+      third.appendChild(more);
+    }
+    head.appendChild(third);
+
+    const fourth = ask(3);
+    if (view.problem.headline) {
+      fourth.appendChild(
+        el(
+          "p",
+          "",
+          `<span class="pill degraded">${esc(view.problem.headline.kind)}</span> ${esc(view.problem.headline.summary)}`
+        )
+      );
+      fourth.appendChild(el("p", "kind", `队列里排第一 · ${clock(view.problem.headline.at)}`));
+    }
+    fourth.appendChild(
+      el(
+        "p",
+        "kind",
+        `等你裁决 ${esc(view.problem.queue)} 条 · 未关问题 ${esc(view.problem.openIssues)} 条 · 被卡住的任务 ${esc(view.problem.blockedTasks)} 条`
+      )
+    );
+    if (view.problem.queue) {
+      const toPending = el("div", "actions");
+      const button = el("button", "act primary", "去变动屏判定 →");
+      button.addEventListener("click", () => go("diff"));
+      toPending.appendChild(button);
+      fourth.appendChild(toPending);
+    }
+    head.appendChild(fourth);
+
+    const fifth = ask(4);
+    if (view.drift.drifting) {
+      fifth.appendChild(
+        el(
+          "p",
+          "",
+          `有：${esc(view.drift.open)} 条还没人判（规则一共记过 ${esc(view.drift.recorded)} 条）`
+        )
+      );
+      fifth.appendChild(
+        el(
+          "p",
+          "kind",
+          view.drift.kinds.map((row) => `<span class="pill">${esc(row.status)} ${esc(row.count)}</span>`).join(" ")
+        )
+      );
+      const toDrift = el("div", "actions");
+      const button = el("button", "act", "看是哪条规则 →");
+      button.addEventListener("click", () => go("drift"));
+      toDrift.appendChild(button);
+      fifth.appendChild(toDrift);
+    } else {
+      fifth.appendChild(el("p", "empty-screen", "没有：这一轮没有一条规则 raise 过东西。这是一个回答，不是缺记录。"));
+    }
+    head.appendChild(fifth);
+
+    const sixth = ask(5);
+    if (view.nextActions.length)
+      sixth.appendChild(
+        el("ul", "plain", view.nextActions.map((line) => `<li>${esc(line)}</li>`).join(""))
+      );
+    const toMap = el("div", "actions");
+    const mapButton = el("button", "act", "整张项目地图 →");
+    mapButton.addEventListener("click", () => go("map"));
+    toMap.appendChild(mapButton);
+    sixth.appendChild(toMap);
+    head.appendChild(sixth);
 
     const baseline = el("div", "card", `<h2>基线</h2>`);
     baseline.appendChild(
@@ -316,30 +452,113 @@ screens.decisions = () =>
   });
 
 /* ── 演进 / AEP ───────────────────────────────────────────────────────── */
+/* §47's five legs come in `view.legs`, and the split of the registry is the AEP record's own
+ * AepStatus — this layer groups nothing it invented, and never shows an untriggered plan as work
+ * (禁止 8). */
 screens.evolution = () =>
   guard(async () => {
     const view = await invoke("evolution_view");
-    const head = screen("演进 / AEP", `${view.aeps.length} 份 · ${esc(view.note)}`);
-    if (!view.aeps.length) {
-      head.appendChild(el("div", "card", `<p class="empty-screen">还没有演进提案。AEP 住在 <code>docs/evolution/</code>，由采集折进时间线之后才出现在这里。</p>`));
-      return;
-    }
-    view.aeps.forEach((item) => {
-      const card = el(
+    const head = screen("演进 / AEP", `${esc(view.aeps.length)} 份提案 · ${esc(view.note)}`);
+    const leg = (index) => {
+      const card = el("div", "card", `<h2>${esc(view.legs[index])}</h2>`);
+      const gap = (view.gaps || []).find((item) => item.label === view.legs[index]);
+      if (gap) card.appendChild(el("p", "gap", esc(gap.reason)));
+      return card;
+    };
+    const detail = (item) => {
+      const block = el(
         "div",
-        "card",
-        `<h2>${esc(item.code)} ${esc(item.title)} <span class="pill">${esc(item.status)}</span></h2>` +
-          `<p class="note">现在：${esc(item.current)}</p>` +
-          `<p class="note">限制：${esc(item.limitation)}</p>` +
-          `<p class="note">为什么现在不做：${esc(item.whyNotNow)}</p>` +
-          `<p class="note">触发条件：${item.trigger.length ? item.trigger.map(esc).join("；") : "未写明"}</p>` +
-          `<p>${esc(item.target)}</p>` +
-          (item.changeSurface.length ? `<p class="kind">会动到：${item.changeSurface.map(esc).join("、")}</p>` : "") +
-          (item.preservedCore.length ? `<p class="kind">保持不变：${item.preservedCore.map(esc).join("、")}</p>` : "") +
-          `<p class="kind"><code>${esc(item.id)}</code>${item.benefit ? ` · 收益 ${esc(item.benefit)}` : ""}${item.cost ? ` · 代价 ${esc(item.cost)}` : ""}</p>`
+        "mod",
+        `<h3>${esc(item.code)} ${esc(item.title)} <span class="pill${
+          item.status === "completed" ? " ok" : item.status === "triggered" || item.status === "in_progress" ? " degraded" : ""
+        }">${esc(item.status)}</span></h3>`
       );
-      head.appendChild(card);
-    });
+      const rows = [
+        ["现在", item.current],
+        ["限制", item.limitation],
+        ["为什么现在不做", item.whyNotNow],
+        ["触发条件", item.trigger.length ? item.trigger.join("；") : "未写明"],
+        ["目标", item.target],
+        ["会动到", item.changeSurface.join("、")],
+        ["保持不变", item.preservedCore.join("、")],
+        [
+          "标识",
+          `${item.id}${item.benefit ? ` · 收益 ${item.benefit}` : ""}${item.cost ? ` · 代价 ${item.cost}` : ""}`,
+        ],
+      ];
+      const list = el(
+        "div",
+        "items",
+        rows.filter(([, value]) => value).map(([label, value]) => `<div>${esc(label)}：${esc(value)}</div>`).join("")
+      );
+      block.appendChild(list);
+      return block;
+    };
+
+    const baseline = leg(0);
+    if (view.baseline) {
+      const table = el("table", "grid", "<tbody>");
+      [
+        ["版本", `v${view.baseline.version}（库里留着 ${view.baseline.history} 版）`],
+        ["概述", view.baseline.summary],
+        ["分层", view.baseline.layers.join("；") || "—"],
+        ["不变量", view.baseline.invariants.join("；") || "—"],
+        ["可替换的部分", view.baseline.replaceableParts.join("、") || "—"],
+      ].forEach(([label, value]) =>
+        table.appendChild(
+          el("tr", "", `<th>${esc(label)}</th><td>${esc(value)}</td>`)
+        )
+      );
+      baseline.appendChild(table);
+    }
+    head.appendChild(baseline);
+
+    /* Leg 2 is always the announced one: an ADR is a document in `docs/adr/`, not a record the
+     * engines fold, and the shell keeps no table for it. */
+    head.appendChild(leg(1));
+
+    const registry = leg(2);
+    if (!view.aeps.length) {
+      registry.appendChild(
+        el("p", "empty-screen", "还没有演进提案。AEP 住在 docs/evolution/，由采集折进时间线之后才出现在这里。")
+      );
+    } else {
+      const table = el(
+        "table",
+        "grid",
+        "<thead><tr><th>AEP</th><th>标题</th><th>状态</th><th>触发条件</th></tr></thead><tbody>" +
+          view.aeps
+            .map(
+              (item) =>
+                `<tr><td><code>${esc(item.code)}</code></td><td>${esc(item.title)}</td>` +
+                `<td><span class="pill">${esc(item.status)}</span></td><td class="num">${esc(item.trigger.length)}</td></tr>`
+            )
+            .join("") +
+          "</tbody>"
+      );
+      registry.appendChild(table);
+      const waiting = el("div", "mod", `<h3>还没被触发的（dormant / watching）</h3>`);
+      view.dormant.forEach((item) => waiting.appendChild(detail(item)));
+      if (view.dormant.length) {
+        waiting.appendChild(
+          el("p", "kind", "它们停在这里是因为触发条件没到，不是因为还没做（禁止 8）。")
+        );
+        registry.appendChild(waiting);
+      }
+    }
+    head.appendChild(registry);
+
+    const triggered = leg(3);
+    if (!view.triggered.length)
+      triggered.appendChild(el("p", "empty-screen", "没有一条 AEP 的触发条件成立：现在没有该改架构的地方。"));
+    view.triggered.forEach((item) => triggered.appendChild(detail(item)));
+    head.appendChild(triggered);
+
+    const completed = leg(4);
+    if (!view.completed.length)
+      completed.appendChild(el("p", "empty-screen", "还没有一份演进走到完成——完成由 AEP_COMPLETED 事件说明，不在这里补写。"));
+    view.completed.forEach((item) => completed.appendChild(detail(item)));
+    head.appendChild(completed);
   });
 
 /* ── 时间线 ───────────────────────────────────────────────────────────── */

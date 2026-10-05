@@ -1,8 +1,11 @@
-//! §39's watch signals: which branch HEAD is on and which files are uncommitted.
+//! §39's watch signals: which branch HEAD is on, which files are uncommitted, and which
+//! recorded file has vanished.
 //!
 //! V1 has no daemon, so a watch pass is a diff against the snapshot the previous pass
-//! stored. Everything here runs on a canned [`CommandRunner`] — no repository on disk —
-//! which is the layer's whole contract: git-shaped data in, events out.
+//! stored. The git side runs on a canned [`CommandRunner`] — no repository on disk —
+//! which is the layer's whole contract: git-shaped data in, events out. The file side
+//! reads a real temporary directory, because a deletion is only visible as the diff
+//! between two walks of one.
 //!
 //! The assertions that matter are the negative ones. A watch must write nothing when
 //! nothing moved (§51 idempotent capture); it must create no artifact and change no task
@@ -16,8 +19,10 @@ use std::sync::{Arc, Mutex};
 use vibe_core::error::{CoreError, Result};
 use vibe_core::ports::Repositories;
 use vibe_core::project_service::ProjectService;
-use vibe_domain::{event_catalog, ProjectEvent, SourceType};
-use vibe_ingestion::{CommandOutcome, CommandRunner, GitFacts, WorkspaceSnapshot};
+use vibe_domain::{event_catalog, ActorType, ProjectEvent, SourceType};
+use vibe_ingestion::{
+    CommandOutcome, CommandRunner, FileScan, GitFacts, ScanKind, WorkspaceSnapshot,
+};
 use vibe_state_engine::Reducer;
 use vibe_storage::SqliteStore;
 
@@ -274,6 +279,91 @@ fn watch_signals_fold_into_no_project_state_at_all() {
         3,
         "the project's own creation event plus the two signals"
     );
+}
+
+/// §39's third file signal, proven against a directory that really loses a file: the
+/// removal is one signal, the artifact row is marked rather than dropped, and the pass
+/// draws no conclusion (§19 禁止 9 — a vanished file completes nothing and decides nothing).
+#[test]
+fn a_vanished_file_leaves_a_removal_signal_and_no_new_verdict() {
+    let (_store, repositories, project) = repos();
+    let tree = tempfile::tempdir().expect("a directory to scan");
+    std::fs::create_dir_all(tree.path().join("src")).expect("src");
+    let gone = tree.path().join("src/auth.rs");
+    std::fs::write(&gone, "pub fn login() {}\n").expect("file");
+
+    let scan = FileScan::new(repositories.clone(), tree.path()).with_source_key("watched-tree");
+    let baseline = scan.run(&project).expect("first pass");
+    assert_eq!(baseline.by_kind(ScanKind::Created).len(), 1);
+    let recorded = baseline.by_kind(ScanKind::Created)[0]
+        .hash
+        .clone()
+        .expect("a first pass leaves a content baseline");
+
+    let before = Reducer::new(repositories.clone())
+        .project_state(&project)
+        .expect("projection");
+    assert_eq!(before.artifacts.len(), 1, "the fold knows the file");
+    assert!(!before.artifacts[0].deleted);
+
+    std::fs::remove_file(&gone).expect("the file is gone");
+    let report = scan.run(&project).expect("the pass that finds it gone");
+
+    let deleted = report.by_kind(ScanKind::Deleted);
+    assert_eq!(deleted.len(), 1, "{report:?}");
+    assert_eq!(deleted[0].path, "src/auth.rs", "relative, forward-slashed (§22)");
+    assert_eq!(
+        deleted[0].hash, None,
+        "a removal carries no new content hash, only the loss of the old one"
+    );
+    assert_eq!(report.events_appended, 1);
+    assert_eq!(report.scanned, 0);
+
+    // ADR-022's decision 5: the vanished file is an `ARTIFACT_DELETED` event, not a
+    // `FILE_CHANGED` one — the latter folds into an upsert and would put the file back.
+    let removal = events_of(&repositories, &project, event_catalog::ARTIFACT_DELETED);
+    assert_eq!(removal.len(), 1);
+    assert_eq!(removal[0].payload["path"], serde_json::json!("src/auth.rs"));
+    assert_eq!(removal[0].actor_type, ActorType::System, "observed, not asserted");
+    assert_eq!(removal[0].subject_id.as_deref(), Some("src/auth.rs"));
+    assert!(
+        events_of(&repositories, &project, event_catalog::FILE_CHANGED)
+            .iter()
+            .all(|event| event.payload["change"] != serde_json::json!("deleted")),
+        "a deletion is not a content change: {:?}",
+        events_of(&repositories, &project, event_catalog::FILE_CHANGED)
+    );
+
+    // The row is kept and marked: §45 has to be able to point at the file's history.
+    let row = repositories
+        .artifacts
+        .find_artifact_by_path(&project, "src/auth.rs")
+        .expect("artifact read")
+        .expect("the row survives its own deletion");
+    assert!(row.deleted, "marked, not removed");
+    assert_eq!(row.hash.as_deref(), Some(recorded.as_str()));
+
+    // A second pass over the same absence is not a second fact (§51).
+    let again = scan.run(&project).expect("rescan");
+    assert!(again.is_quiet(), "the removal is already recorded: {again:?}");
+    assert_eq!(
+        events_of(&repositories, &project, event_catalog::ARTIFACT_DELETED).len(),
+        1
+    );
+
+    let after = Reducer::new(repositories.clone())
+        .project_state(&project)
+        .expect("reprojection");
+    assert_eq!(after.artifacts.len(), before.artifacts.len());
+    assert!(
+        after.artifacts[0].deleted,
+        "the fold and the cache row agree about the same log (§18)"
+    );
+    assert!(after.tasks.is_empty(), "a vanished file finishes nothing");
+    assert!(after.decisions.is_empty(), "and it decides nothing");
+    assert!(after.change_proposals.is_empty());
+    assert!(after.drift_alerts.is_empty(), "and it condemns nothing");
+    assert_eq!(after.milestones.len(), before.milestones.len());
 }
 
 /// `dirty` then clean then `dirty` with the same paths is one fact told twice: the payload

@@ -16,7 +16,8 @@ use vibe_state_engine::{ProjectMapCompiler, Reducer, SnapshotService};
 use vibe_cli::app::App;
 use vibe_cli::context::parse_ref;
 use vibe_domain::{
-    ChangeProposalStatus, DriftSeverity, EventStatus, InboxKind, ProjectEvent,
+    AepStatus, ChangeProposalStatus, DriftSeverity, EventStatus, InboxKind, ProjectEvent,
+    TaskStatus,
 };
 
 // ────────────────────────────── ① 变动 ──────────────────────────────
@@ -330,6 +331,111 @@ fn split_sections(markdown: &str) -> Vec<MapSection> {
 
 // ─────────────────────────────── 总览 ───────────────────────────────
 
+/// §46 asks the first screen six questions and no others. The list is the screen's contract: it
+/// walks them in this order, and every answer below is one read of a record the engines already
+/// hold — the reducer's hydrated baselines, the accepted log, §29's queue, the drift rules'
+/// alerts, and PROJECT_MAP's own `Next Actions`.
+pub const Q_INTENT: &str = "最初目标是什么？";
+pub const Q_PHASE: &str = "当前阶段是什么？";
+pub const Q_RECENT: &str = "最近发生了什么？";
+pub const Q_PROBLEM: &str = "当前最大问题是什么？";
+pub const Q_DRIFT: &str = "有没有偏航？";
+pub const Q_NEXT: &str = "下一步是什么？";
+
+/// §46's order, kept as data so no screen renumbers the questions.
+pub const QUESTIONS: [&'static str; 6] = [Q_INTENT, Q_PHASE, Q_RECENT, Q_PROBLEM, Q_DRIFT, Q_NEXT];
+
+/// §47's five legs, in §47's order.
+pub const LEGS: [&'static str; 5] = [
+    "Architecture Baseline",
+    "Active ADR",
+    "AEP Registry",
+    "Triggered AEP",
+    "Completed Evolution",
+];
+
+/// A question or leg the compiled data cannot answer, announced with its reason instead of shown
+/// as a blank box. ADR-011's rule for an empty map section, applied to a screen: the absence is
+/// part of the answer, and the shell never fills it with something it invented.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Gap {
+    pub label: &'static str,
+    pub reason: String,
+}
+
+impl Gap {
+    fn new(label: &'static str, reason: impl Into<String>) -> Self {
+        Self { label, reason: reason.into() }
+    }
+}
+
+/// ① 最初目标是什么？ The active Charter's own fields (§9), hydrated read-only into the state by
+/// the reducer. Absent until the user writes one, and then the answer is a [`Gap`].
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CharterIntent {
+    pub original_problem: String,
+    pub core_value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_user: Option<String>,
+    pub must_have: Vec<String>,
+    pub version: u32,
+    pub locked: bool,
+}
+
+/// ② 当前阶段是什么？ What the project row declares, plus the milestones that mark it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhaseRow {
+    /// False when `current_phase` is empty: the screen then says so out loud.
+    pub declared: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase: Option<String>,
+    /// The project record's own lifecycle word.
+    pub status: String,
+    /// `title — reached | planned`, in the order the log produced them.
+    pub milestones: Vec<String>,
+}
+
+/// ④ 当前最大问题是什么？ The head of §29's queue.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProblemRow {
+    pub kind: String,
+    pub summary: String,
+    pub at: i64,
+}
+
+/// ④ as the shell answers it: `Inbox::list` already ranks its items by kind and then by time, so
+/// the queue's first row *is* the engine's answer to "what is blocking". An `Issue` carries no
+/// priority field, so when nothing waits on a verdict this reports counts rather than naming a
+/// winner — the shell does not invent a ranking to look decisive.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProblemAnswer {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headline: Option<ProblemRow>,
+    /// Items waiting on a verdict, so the headline reads as the first of them.
+    pub queue: usize,
+    pub open_issues: usize,
+    pub blocked_tasks: usize,
+}
+
+/// ⑤ 有没有偏航？ Counted from the alerts the rules recorded. `drifting: false` is a real answer
+/// the screen prints — an empty result is stated, not hidden.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriftAnswer {
+    pub drifting: bool,
+    /// Alerts still asking the user for a verdict.
+    pub open: usize,
+    /// Every alert the fold produced, judged or not, so `open` reads against a total.
+    pub recorded: usize,
+    /// `rule · severity` counted over the open alerts, in the fold's own order.
+    pub kinds: Vec<StatusTally>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatusTally {
@@ -349,6 +455,9 @@ pub struct KindRow {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OverviewView {
+    /// §46's six, in order, so the webview renders the contract it was handed instead of
+    /// keeping a second copy of the questions.
+    pub questions: [&'static str; 6],
     pub project_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root_path: Option<String>,
@@ -362,6 +471,20 @@ pub struct OverviewView {
     pub applied_events: u64,
     pub state_hash: String,
     pub built_at: i64,
+    /// §46 ①, or announced in [`OverviewView::gaps`].
+    pub intent: Option<CharterIntent>,
+    /// §46 ②.
+    pub phase: PhaseRow,
+    /// §46 ③ — the newest accepted events, newest first, by the shell's own timeline builder.
+    pub recent: Vec<TimelineRow>,
+    /// §46 ④.
+    pub problem: ProblemAnswer,
+    /// §46 ⑤.
+    pub drift: DriftAnswer,
+    /// §46 ⑥ — PROJECT_MAP's `Next Actions`, reused from the compiled map.
+    pub next_actions: Vec<String>,
+    /// Which of the six the compiled data cannot answer, in §46's order.
+    pub gaps: Vec<Gap>,
     pub kinds: Vec<KindRow>,
     pub open_proposals: usize,
     pub drift_findings: usize,
@@ -396,8 +519,24 @@ where
     out
 }
 
+/// Three rows is what "最近" means on a screen that does not scroll; 时间线 is the full log.
+const RECENT_ACTIVITY: usize = 3;
+
+/// One §31 section's lines from the compiled map. The `_none recorded_` placeholder is read as
+/// the absence it names rather than printed as a fact, which is what lets an empty section
+/// announce itself (ADR-011).
+fn section_lines(sections: &[MapSection], name: &str) -> Vec<String> {
+    sections
+        .iter()
+        .find(|section| section.name == name)
+        .filter(|section| !section.empty)
+        .map(|section| section.lines.clone())
+        .unwrap_or_default()
+}
+
 pub fn overview_view(app: &App, project_id: &str) -> Result<OverviewView> {
-    let state = Reducer::new(app.repos.clone()).project_read_only(project_id)?;
+    let reducer = Reducer::new(app.repos.clone());
+    let state = reducer.project_read_only(project_id)?;
     let project = state
         .project
         .clone()
@@ -448,7 +587,108 @@ pub fn overview_view(app: &App, project_id: &str) -> Result<OverviewView> {
         },
     ];
 
+    // ③ The same rows 时间线 prints: accepted events, newest first, in the payload's own words.
+    let recent = timeline_view(app, project_id, RECENT_ACTIVITY)?.events;
+    // ④ The queue the user has not judged yet, in the order the engine ranked it.
+    let inbox = Inbox::new(app.repos.clone()).list(project_id)?;
+    let open_drift = state.open_drift();
+    // ⑥ The compiled map, read for its `Next Actions` section rather than recomposed here.
+    // `compile_from` renders the fold this function already holds — the same events the map
+    // screen's `compile` pulls — so the overview neither pays for a second projection nor writes
+    // a cache row of its own, and its `Next Actions` is byte-identical to the map's.
+    let events = reducer.accepted_events(project_id)?;
+    let map = ProjectMapCompiler::new(app.repos.clone()).compile_from(&state, &events);
+    let next_actions = section_lines(&split_sections(&map.markdown), "Next Actions");
+
+    let intent = state.charter.as_ref().map(|charter| CharterIntent {
+        original_problem: charter.original_problem.clone(),
+        core_value: charter.core_value.clone(),
+        target_user: charter.target_user.clone(),
+        must_have: charter.must_have.clone(),
+        version: charter.version,
+        locked: charter.locked,
+    });
+    let phase = PhaseRow {
+        declared: project.current_phase.is_some(),
+        phase: project.current_phase.clone(),
+        status: slug(&project.status),
+        milestones: state
+            .milestones
+            .iter()
+            .map(|milestone| {
+                format!(
+                    "{} — {}",
+                    milestone.title,
+                    if milestone.reached { "reached" } else { "planned" }
+                )
+            })
+            .collect(),
+    };
+    let problem = ProblemAnswer {
+        headline: inbox.first().map(|item| ProblemRow {
+            kind: kind_slug(&item.kind).to_string(),
+            summary: item.summary.clone(),
+            at: item.created_at.timestamp(),
+        }),
+        queue: inbox.len(),
+        open_issues: state.open_issues().len(),
+        blocked_tasks: state
+            .tasks
+            .iter()
+            .filter(|task| task.status == TaskStatus::Blocked)
+            .count(),
+    };
+    let drift = DriftAnswer {
+        drifting: !open_drift.is_empty(),
+        open: open_drift.len(),
+        recorded: state.drift_alerts.len(),
+        kinds: tally(&open_drift, |alert| {
+            format!(
+                "{} · {}",
+                alert.r#type.as_str(),
+                severity_slug(alert.severity)
+            )
+        }),
+    };
+
+    // §46 wants all six answered, and ⑤'s answer may legitimately be "no". Where the records hold
+    // nothing a question can be read from, the answer is the announcement.
+    let mut gaps = Vec::new();
+    if intent.is_none() {
+        gaps.push(Gap::new(
+            Q_INTENT,
+            "还没有 Charter 记录：最初的意图此刻只活在聊天记录里（§9）。用户写下 charter 之后，这一条才有话可说。",
+        ));
+    }
+    if !phase.declared {
+        gaps.push(Gap::new(
+            Q_PHASE,
+            "项目记录的 current_phase 是空的，还没有人声明项目走到哪一步；下面的里程碑是仅有的线索。",
+        ));
+    }
+    if recent.is_empty() {
+        gaps.push(Gap::new(
+            Q_RECENT,
+            "已接受的事件日志是空的，所以「最近」没有任何一条记录可以指认。",
+        ));
+    }
+    if problem.headline.is_none() && problem.open_issues + problem.blocked_tasks > 0 {
+        gaps.push(Gap::new(
+            Q_PROBLEM,
+            "Inbox 里没有待判的条目，而 Issue 记录里没有优先级字段——折叠出来的顺序就是日志的顺序。\
+             这一屏不替引擎排序，只报数量。",
+        ));
+    }
+    if next_actions.is_empty() {
+        gaps.push(Gap::new(
+            Q_NEXT,
+            "编译出来的地图在 Next Actions 一节写着 _none recorded_：没有一条记录此刻要求决定。\
+             这不等于项目无事可做，只等于引擎没有话可说。",
+        ));
+    }
+
     Ok(OverviewView {
+        questions: QUESTIONS,
         project_name: project.name,
         root_path: project.root_path,
         charter_version: state.charter.as_ref().map(|item| item.version),
@@ -458,6 +698,14 @@ pub fn overview_view(app: &App, project_id: &str) -> Result<OverviewView> {
         applied_events: state.applied_events,
         state_hash: state.state_hash.clone().unwrap_or_default(),
         built_at: state.built_at.map(|time| time.timestamp()).unwrap_or(0),
+        intent,
+        phase,
+        recent,
+        problem,
+        drift,
+        next_actions,
+        gaps,
+        kinds,
         open_proposals: state
             .change_proposals
             .iter()
@@ -467,7 +715,6 @@ pub fn overview_view(app: &App, project_id: &str) -> Result<OverviewView> {
         latest_snapshot: snapshot
             .as_ref()
             .map(|item| format!("{} · seq {}", item.label, item.state.last_seq)),
-        kinds,
         note: "这些数字是已接受事件折叠出来的结果，不是第二套状态：要看某一条，去时间线或项目地图。".to_string(),
     })
 }
@@ -525,6 +772,22 @@ pub fn decisions_view(app: &App, project_id: &str) -> Result<DecisionsView> {
 
 // ────────────────────────────── 演进（AEP） ──────────────────────────────
 
+/// §47 leg 1: the Architecture Baseline the reducer hydrated — the line the drift rules measure
+/// against. Absent until the user records one, and then announced as a [`Gap`].
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BaselineLeg {
+    pub version: u32,
+    pub summary: String,
+    /// `name — responsibility`, or just `name` where the record leaves it blank.
+    pub layers: Vec<String>,
+    /// The invariants' own text, the way §11 stores them.
+    pub invariants: Vec<String>,
+    pub replaceable_parts: Vec<String>,
+    /// Every version the repository still keeps, so `version` reads as the head of a history.
+    pub history: usize,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AepRow {
@@ -545,35 +808,119 @@ pub struct AepRow {
     pub status: String,
 }
 
+/// §47's five legs. `aeps` is the registry, the three lists below it are the same rows split by
+/// the record's own `AepStatus` — no shell-side flag decides what counts as work:
+/// `Triggered | InProgress` is live (the same pairing §31's `Next Actions` uses), `Completed` is
+/// a finished evolution, `Dormant | Watching` is a proposal still waiting for its trigger.
+/// `Superseded` belongs to the registry only: a plan someone replaced is neither waiting nor
+/// work, and inventing a fourth bucket for it would be the shell deciding.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvolutionView {
+    /// §47's five legs in order, handed to the webview so the screen renders the contract
+    /// rather than repeating it.
+    pub legs: [&'static str; 5],
+    /// Leg 1, or announced in [`EvolutionView::gaps`].
+    pub baseline: Option<BaselineLeg>,
+    /// Leg 3: every plan the fold produced, once each. Leg 2 has no field — an ADR is a document
+    /// in `docs/adr/`, not a record, so the leg is announced rather than faked with what is
+    /// nearest.
     pub aeps: Vec<AepRow>,
+    /// Legs 4 and 5, and the plans still asleep, which §47 gives no leg of its own but the
+    /// registry has to place.
+    pub triggered: Vec<AepRow>,
+    pub completed: Vec<AepRow>,
+    pub dormant: Vec<AepRow>,
+    /// Leg 2 always; leg 1 as well until a baseline is recorded.
+    pub gaps: Vec<Gap>,
     pub note: String,
+}
+
+fn aep_row(aep: &vibe_domain::ArchitectureEvolutionPlan) -> AepRow {
+    AepRow {
+        id: aep.id.clone(),
+        code: aep.code.clone(),
+        title: aep.title.clone(),
+        current: aep.current.clone(),
+        limitation: aep.limitation.clone(),
+        why_not_now: aep.why_not_now.clone(),
+        trigger: aep.trigger.clone(),
+        target: aep.target.clone(),
+        change_surface: aep.change_surface.clone(),
+        preserved_core: aep.preserved_core.clone(),
+        benefit: aep.benefit.clone(),
+        cost: aep.cost.clone(),
+        status: slug(&aep.status),
+    }
 }
 
 pub fn evolution_view(app: &App, project_id: &str) -> Result<EvolutionView> {
     let state = Reducer::new(app.repos.clone()).project_read_only(project_id)?;
-    Ok(EvolutionView {
-        aeps: state
-            .aeps
+    // Only a recorded baseline has a history to count, and the shell does not read a table to
+    // find out it is empty.
+    let history = if state.baseline.is_some() {
+        app.repos.projects.list_baseline_versions(project_id)?.len()
+    } else {
+        0
+    };
+    let baseline = state.baseline.as_ref().map(|baseline| BaselineLeg {
+        version: baseline.version,
+        summary: baseline.summary.clone(),
+        layers: baseline
+            .layers
             .iter()
-            .map(|aep| AepRow {
-                id: aep.id.clone(),
-                code: aep.code.clone(),
-                title: aep.title.clone(),
-                current: aep.current.clone(),
-                limitation: aep.limitation.clone(),
-                why_not_now: aep.why_not_now.clone(),
-                trigger: aep.trigger.clone(),
-                target: aep.target.clone(),
-                change_surface: aep.change_surface.clone(),
-                preserved_core: aep.preserved_core.clone(),
-                benefit: aep.benefit.clone(),
-                cost: aep.cost.clone(),
-                status: slug(&aep.status),
+            .map(|layer| match &layer.responsibility {
+                Some(responsibility) => format!("{} — {}", layer.name, responsibility),
+                None => layer.name.clone(),
             })
             .collect(),
+        invariants: baseline
+            .invariants
+            .iter()
+            .map(|invariant| invariant.text.clone())
+            .collect(),
+        replaceable_parts: baseline.replaceable_parts.clone(),
+        history,
+    });
+
+    let mut aeps = Vec::new();
+    let mut triggered = Vec::new();
+    let mut completed = Vec::new();
+    let mut dormant = Vec::new();
+    for aep in &state.aeps {
+        let row = aep_row(aep);
+        match aep.status {
+            AepStatus::Triggered | AepStatus::InProgress => triggered.push(row.clone()),
+            AepStatus::Completed => completed.push(row.clone()),
+            AepStatus::Dormant | AepStatus::Watching => dormant.push(row.clone()),
+            AepStatus::Superseded => {}
+        }
+        aeps.push(row);
+    }
+
+    let mut gaps = Vec::new();
+    if baseline.is_none() {
+        gaps.push(Gap::new(
+            LEGS[0],
+            "还没有架构基线记录：这一层的分层与不变量此刻不在库里，偏航规则也就没有可比的那条线（§11）。\
+             记下 baseline 之后，这一条才有话可说。",
+        ));
+    }
+    gaps.push(Gap::new(
+        LEGS[1],
+        "ADR 是 docs/adr/ 里的文档，不是已接受事件折叠出来的记录：Decision 记录里没有 ADR 这个类型，\
+         只有 active / superseded / reversed（§25）。这一屏不为此建表，也不把 Decision 冒充成 ADR，\
+         所以它空着，请去 docs/adr/ 读。",
+    ));
+
+    Ok(EvolutionView {
+        legs: LEGS,
+        baseline,
+        aeps,
+        triggered,
+        completed,
+        dormant,
+        gaps,
         note: "AEP 说的是「什么时候该改」，不是待办清单：触发条件没到，它就应当停在这里（禁止 8）。"
             .to_string(),
     })

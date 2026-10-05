@@ -1,5 +1,5 @@
 //! Capture records: sources, conversations, messages and sync cursors.
-//! Message insertion is idempotent on external id (L1) then content hash (L2).
+//! Message insertion is idempotent on external id (L1) then content hash per role (L2).
 
 use rusqlite::{params, Row};
 use vibe_core::error::{CoreError, Result};
@@ -205,10 +205,13 @@ impl ConversationRepository for SqliteStore {
         for message in messages {
             let inserted = conn
                 .execute(
+                    // §52 L2 is hash + role, and the key carries no timestamp: §51 re-push
+                    // idempotency needs identity alone, since a source time can be absent or
+                    // jittery. Same text at another time is an L3 hint, never a deletion.
                     "INSERT INTO messages (id, conversation_id, project_id, role, content,
                             content_hash, external_message_id, created_at, observed_at)
                      VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)
-                     ON CONFLICT(conversation_id, content_hash) DO NOTHING",
+                     ON CONFLICT(conversation_id, role, content_hash) DO NOTHING",
                     params![
                         message.id,
                         conversation_id,

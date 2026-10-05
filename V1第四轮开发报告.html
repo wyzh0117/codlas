@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>构览 Codlas · V1 第四轮开发报告（2026-10-06）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --ink:#e6e9ef; --muted:#9aa4b2;
+    --line:#252b35; --ok:#3fb950; --warn:#d29922; --no:#f85149; --accent:#58a6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif}
+  main{max-width:1080px;margin:0 auto;padding:40px 24px 96px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+  h2{font-size:19px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+  p{margin:10px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12.5px;color:var(--muted)}
+  .badge b{color:var(--ink);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h4{margin:0 0 4px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .card .v{font-size:22px;font-weight:650}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel);color:var(--muted);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+  td code,li code,p code{background:#1c2230;border:1px solid var(--line);border-radius:4px;
+    padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ok{color:var(--ok);font-weight:600}
+  .warn{color:var(--warn);font-weight:600}
+  .no{color:var(--no);font-weight:600}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid #24313f}
+  a:hover{border-bottom-color:var(--accent)}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:4px 0}
+  pre{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .callout{border-left:3px solid var(--accent);background:var(--panel);
+    padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  nav{position:sticky;top:0;background:rgba(15,17,21,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin:-40px -24px 28px;z-index:2}
+  nav .in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+  nav a{border:0;color:var(--muted)}
+  nav a:hover{color:var(--accent)}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+
+<nav><div class="in">
+  <a href="#scope">本轮范围</a>
+  <a href="#host">宿主这一侧</a>
+  <a href="#ext">扩展这一侧</a>
+  <a href="#drift">对接时抓出的两处</a>
+  <a href="#stage-d">Stage D 验收</a>
+  <a href="#e2e">§58 E2E</a>
+  <a href="#tests">测试</a>
+  <a href="#audit">V1 完成度清点</a>
+  <a href="#docs">回写的文档</a>
+  <a href="#deferred">仍然没做</a>
+  <a href="#run">怎么跑</a>
+</div></nav>
+
+<h1>构览 Codlas · V1 第四轮开发报告</h1>
+<div class="sub">把上一轮"还欠着"的 V1-D 浏览器门建完（§34 扩展 + §35 Native Messaging），两侧对着写成，并再对整个 V1 阶段做一次完成度清点 · 2026-10-06 · 分支 <code>main</code> · 私有仓库 <code>wyzh0117/codlas</code></div>
+
+<div class="badges">
+  <span class="badge">测试 <b>279 passed · 0 failed · 1 ignored</b></span>
+  <span class="badge">构建 warning <b>0</b></span>
+  <span class="badge">workspace 成员 <b>仍是 12 份 manifest</b></span>
+  <span class="badge">§62 Context 门 <b>◐ → ✅</b></span>
+  <span class="badge">§35 五项检查 <b>各占一个拒绝前缀</b></span>
+  <span class="badge">ADR <b>+ADR-031（同一轮就地修订一次）</b></span>
+  <span class="badge">V1 账上 <b>只剩 ADR-028 入站采集</b></span>
+</div>
+
+<div class="grid">
+  <div class="card"><h4>本轮新增测试</h4><div class="v">+14</div></div>
+  <div class="card"><h4>库层 <code>native_messaging.rs</code></h4><div class="v">13 条</div></div>
+  <div class="card"><h4>真二进制 <code>cli_e2e</code></h4><div class="v">20 条</div></div>
+  <div class="card"><h4>协议动词</h4><div class="v">4 个</div></div>
+</div>
+
+<h2 id="scope">一、本轮范围：这一条门为什么值得两侧同时写</h2>
+<p>V1-D 记了三轮 <b>◐</b>，缺的从来不是读文件的那一半——<code>Manual Import</code>、transcript、CLI session、<code>git log</code>
+都有适配器了。缺的是 §34 与 §35 那一行：<em>活的网页会话</em>如何进入工作台，以及工作台编译好的 Context Pack 如何回到网页。
+§38.5 的 MCP 那扇门（ADR-026 / ADR-028）读得出去、读不进来，替不了这条链路。</p>
+<p>本轮按用户留下的三句话推进：<b>①按"还欠着"记</b>——写回时 V1-D 仍是 ◐，只是欠的东西换了名字；
+<b>②把"立刻收尾"和"接着做"的部分都完成</b>——宿主 + 扩展 + §58 E2E 那一行 + 上一轮 README 里那份与实现对不上的安装说明；
+<b>③检查整个 V1 是否全部完成</b>——见<a href="#audit">第八节</a>的逐段清点。</p>
+<div class="callout">
+  <strong>为什么必须两侧对着写：</strong>通道一头是 Rust 宿主、另一头是 JS 扩展，中间只有 JSON。
+  任何一侧单方面定义字段名，缺陷都会等到下一个人第一次真跑时才现形。本轮抓出的两处（第四节）就是这么找出来的。
+</div>
+
+<h2 id="host">二、宿主这一侧：<code>native_messaging.rs</code> 与 <code>wp host</code></h2>
+<p>四个动词、一问一答、永不监听。没有端口、没有 socket、没有后台守护——通道的生命周期就是 Chrome 给的那个 stdio。</p>
+<table>
+  <thead><tr><th>command</th><th>payload</th><th>回答（<code>data</code>）</th><th>落点</th></tr></thead>
+  <tbody>
+    <tr><td><code>hello</code></td><td><code>{}</code></td>
+      <td><code>protocol</code> / <code>commands</code> / <code>capabilities</code> / <code>allowedOrigins</code> / <code>project</code> / <code>autoExecute:false</code></td>
+      <td>只答策略，不碰库</td></tr>
+    <tr><td><code>capture</code></td><td><code>source</code> / <code>conversationId</code> / <code>title</code> / <code>messages[]</code></td>
+      <td><code>action:"captured"</code> + <code>messages{inserted,duplicate}</code> + <code>events{appended,pending,candidate}</code> + <code>nearDuplicates</code> + <code>project</code></td>
+      <td><code>IngestPipeline::ingest_messages</code></td></tr>
+    <tr><td><code>open</code></td><td><code>url</code></td>
+      <td><code>action:"openTab"</code>, <code>url</code></td>
+      <td>指令；由 service worker 执行</td></tr>
+    <tr><td><code>inject</code></td><td><code>text</code></td>
+      <td><code>action:"fillComposer"</code>, <code>text</code>, <code>send:false</code>, <code>note</code></td>
+      <td>指令；§7.8 写在协议里</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>帧</strong>：四个小端字节长度前缀 + UTF-8 JSON。声明超过 1 MiB 的帧在<strong>解析任何 JSON 之前</strong>被拒——
+这是 §35 的 <code>size</code> 唯一说得通的位置；恶意或写坏的扩展无法用四个头字节让工作台分配 4 GiB。</li>
+  <li><strong>五个检查各有一个拒绝前缀</strong>：<code>origin rejected</code> / <code>command rejected</code> / <code>payload rejected</code> /
+<code>size rejected</code> / <code>project scope rejected</code>。测试按前缀断言，所以一个检查失效不会被另一个的失败掩盖。</li>
+  <li><strong>一条坏帧只结束那一帧</strong>：会话继续（§62——静默才是失败，报出来的不是）。</li>
+  <li><strong>不是第八个适配器</strong>：浏览器推来的线程走 <code>ingest_messages</code>。适配器是<em>读者</em>，
+活的会话在浏览器那一侧是被推的一方；给它造一个"主动读"的 trait 只会把"谁来发起"说假。</li>
+  <li><strong><code>wp host</code> 是子命令，不是第十三个成员</strong>：§60 的 12 份 manifest 巡检因此不必改写。
+<code>manifest</code> 写<strong>两</strong>个文件——Chrome 的记录 + 记录所指向的 wrapper 脚本，因为 Chrome 不传参数，
+<code>--db</code> 与 <code>--project</code> 只能烘焙进脚本，路径逐单引号转义。</li>
+  <li><strong>stdout 属于协议</strong>：<code>serve</code> 期间人类可读的那一行走 stderr，这是全 CLI 唯一一处这样的命令。</li>
+</ul>
+
+<h2 id="ext">三、扩展这一侧：<code>apps/extension/</code>（MV3，零依赖、零构建）</h2>
+<table>
+  <thead><tr><th>文件</th><th>职责</th><th>守的条款</th></tr></thead>
+  <tbody>
+    <tr><td><code>manifest.json</code></td><td>MV3；权限只有 <code>nativeMessaging / activeTab / scripting / storage</code>；无远程代码、无内联脚本</td><td>§34 的"不负责"清单</td></tr>
+    <tr><td><code>background.js</code></td><td>service worker：§35 前置校验 + 唯一入站门（只收弹窗消息）+ 执行宿主给的 <code>openTab</code> / <code>fillComposer</code></td><td>§35、§7.8</td></tr>
+    <tr><td><code>content.js</code></td><td>读页面（三套站点选择器 + generic 兜底，读不出角色就跳过并报数）、写输入框（只 <code>input</code>/<code>change</code>）</td><td>禁止 9、§7.8</td></tr>
+    <tr><td><code>popup.html/js</code></td><td>五个按钮 + 状态区逐字显示宿主的拒绝句子；全程 <code>textContent</code></td><td>§62 Degradation</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li>校验在 native messaging <strong>之前</strong>：协议版本、origin 白名单、已知 command、payload 形状
+（未知字段拒绝、role 只认 user/assistant、<code>at</code> 不是 RFC3339 就拒绝而不是猜）、project 字段形状、
+序列化后 <b>245760 字节</b>硬上限。宿主自己也有同样一份。</li>
+  <li><strong>generic web 的"用户授权"就是那次点击</strong>：弹窗按钮签发一次性同意凭据（60 秒、用过即废、只在 worker 内存，
+worker 一睡就没）。content script 从不自己发起请求，页面也够不着 <code>chrome.runtime.onMessage</code>（没开
+<code>externally_connectable</code>），所以每条请求都能追回到一个人按过的键。</li>
+  <li><strong>填而不发</strong>：不派发 Enter、不 <code>requestSubmit()</code>、不点发送键；宿主即使回 <code>send:true</code>
+也照 §7.8 忽略并在状态行说明。输入框已有草稿时<strong>追加</strong>而不是覆盖。</li>
+  <li><strong>不联网、不建库</strong>：代码里没有 <code>fetch</code> / <code>XMLHttpRequest</code>；扩展不判断项目状态（禁止 9），
+聊天记录只是证据，最终记忆由 Rust 核心折叠出来。</li>
+</ul>
+
+<h2 id="drift">四、两边对接时抓出的两处（都已就地修订进 ADR-031）</h2>
+<table>
+  <thead><tr><th>问题</th><th>原先</th><th>现在</th></tr></thead>
+  <tbody>
+    <tr><td><strong>§35 的 origin 检查有两副面孔</strong></td>
+      <td>扩展用自造 scheme <code>codlas-extension://popup</code> 报 <code>hello</code> / <code>open</code>，
+而宿主只接受 <code>https://&lt;host&gt;</code>——自检与"打开目标网页"永远 <code>origin rejected</code>。</td>
+      <td>不经手页面材料的 <code>hello</code> / <code>open</code> 接受扩展自己的 <code>chrome-extension://&lt;id&gt;</code>
+（那枚 id 正是 Chrome 按 <code>allowed_origins</code> 已核过的东西）；<code>capture</code> / <code>inject</code> 仍必须报页面 origin。
+<code>open</code> 的目标 URL 另有它自己的白名单，两件事不互相顶替。</td></tr>
+    <tr><td><strong><code>capture</code> 的成功答复被当成未知动作</strong></td>
+      <td><code>applyHostAction</code> 的兜底分支给 <code>{action:"captured"}</code> 写一句"只认 openTab 与 fillComposer，已忽略"——
+正常路径上的一句假话。</td>
+      <td><code>captured</code> 是结果不是指令，直接返回；兜底只报真正不认识的动作。</td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <strong>同轮改写的那份 README：</strong><code>apps/extension/README.md</code> 原先描述的是"<code>wp host manifest</code> 打印一份 json，你原样粘贴"，
+而实际命令是写两个文件并打印 <code>mkdir</code> / <code>cp</code> 两行；协议表也缺 <code>capture</code> 的回复形状与 origin 的两副面孔。
+ADR-031 明写了这条维护费：JS 改了字段名，Rust 只会以 <code>payload rejected</code> 回答，所以两份必须同轮动。
+</div>
+
+<h2 id="stage-d">五、Stage D 的验收逐条对到测试</h2>
+<table>
+  <thead><tr><th>V1_DEVELOPMENT Stage D 验收</th><th>由哪条测试保证</th><th>层</th></tr></thead>
+  <tbody>
+    <tr><td>至少两个来源可进入同一个项目</td>
+      <td><code>two_products_capture_into_one_project_and_stay_two_sources</code>（两个 product → 一个项目 → 两行 Source）</td>
+      <td>库层</td></tr>
+    <tr><td>重复同步不生成重复 Message / Event</td>
+      <td><code>the_same_push_twice_adds_no_message_and_no_event</code>（第二次 0 inserted / 2 duplicate）+ e2e 第 20 条同段</td>
+      <td>库层 + 真二进制</td></tr>
+    <tr><td>§35 五项校验（本轮验收点）</td>
+      <td><code>each_of_the_five_native_messaging_checks_has_its_own_refusal</code>，每类两个以上用例</td><td>库层</td></tr>
+    <tr><td>§38.2 / §38.3 Generic Web 与 ChatGPT Web 两个面都能收</td>
+      <td><code>a_pushed_thread_becomes_messages_an_issue_and_a_web_source</code> + <code>a_consented_origin_opens_the_door_it_was_named_for</code></td>
+      <td>库层</td></tr>
+    <tr><td>§7.8 永不代发</td>
+      <td><code>open_and_inject_answer_with_an_instruction_and_never_a_send</code>（<code>send:false</code> 逐字段断言）</td>
+      <td>库层 + e2e</td></tr>
+    <tr><td>§62 一条坏帧不结束会话</td>
+      <td><code>one_bad_frame_does_not_end_the_session</code>（内存管道两帧两答）</td><td>库层</td></tr>
+  </tbody>
+</table>
+
+<h2 id="e2e">六、§58 的 E2E 那一行第一次真跑通，§53 顺路被看见一次</h2>
+<p><code>cli_e2e</code> 第 20 条 <code>a_browser_session_round_trips_through_the_native_host</code> 用<strong>自己重写的一份编解码</strong>
+驱动真 <code>wp host serve</code>——不复用 crate 的 codec，因为共享 helper 会替宿主隐瞒它自己发出去的字节。
+链路：Browser → Extension → Native → Event → State → Project Map → Select Issue → Context Pack → Browser Prepare。</p>
+<ul>
+  <li>同一轮撞上 §53：这个 fixture 项目 <code>allowCloudModel=false</code>，所以 <code>context build --to chatgpt</code> 的包被<strong>整包拒绝</strong>，
+测试把这句拒绝当成本轮的一个断言，链路上用的是"不声明去处"的那份包。这不是绕行：§53 管的正是"去处"，
+而把包搬进浏览器的人是 §7.8 里那个动手的人。</li>
+  <li>最后一帧之后又送一帧坏 origin：拒答之后 <code>state show</code> 的 Issue 数没变——通道的失败不改变项目事实（禁止 4）。</li>
+</ul>
+
+<h2 id="tests">七、测试与手工验证（分清"跑出来的"与"推出来的"）</h2>
+<p><code>cargo test --workspace</code> = <b>279 passed / 0 failed / 1 ignored</b>（Keychain 仍需 opt-in；上一轮 265），<code>cargo build</code> 零 warning。</p>
+<table>
+  <thead><tr><th>层</th><th>套件</th><th>条数</th></tr></thead>
+  <tbody>
+    <tr><td>库</td><td><code>crates/ingestion/tests/native_messaging.rs</code>（本轮新增）</td><td>13</td></tr>
+    <tr><td>真二进制</td><td><code>apps/cli/tests/cli_e2e.rs</code></td><td>20</td></tr>
+    <tr><td>桌面壳视图</td><td><code>apps/desktop/tests/views.rs</code></td><td>12</td></tr>
+    <tr><td>扩展侧</td><td>只有 <code>node --check</code>：V1 不为它装 JS 测试框架（§60 的成本规则），协议断言全在 Rust 那一侧</td><td>3 个文件</td></tr>
+  </tbody>
+</table>
+<p>本轮另外三处是跑出来的，不是从文档推出来的：</p>
+<ul>
+  <li><code>popup.html</code> 的 12 个 id 与 <code>popup.js</code> 的 <code>getElementById</code> 逐个对上：<strong>缺失 0、冗余 0</strong>；popup 无内联脚本（MV3 CSP 要求）。</li>
+  <li><code>wp host manifest --out …</code> 在临时库上落出的记录与 wrapper <strong>逐字看过</strong>：绝对路径、脚本 <code>0700</code>、
+<code>--db</code> / <code>--project</code> 烘焙进 wrapper、<code>allowed_origins</code> 用 Chrome 的 snake_case 与带尾斜杠的 id。</li>
+  <li>真 <code>wp host serve</code> 收一帧 <code>chrome-extension://…</code> 的 <code>hello</code>，回了能力清单与 <code>autoExecute:false</code>
+——本轮新加的 origin 那副面孔在二进制之上也成立，不只是库测试里。</li>
+</ul>
+<div class="callout warn">
+  <strong>本轮没有做到的：</strong>扩展没有装进真 Chrome 跑过一次。§34 那条门的<em>浏览器半边</em>——页面结构识别、
+输入框定位、填而不发的手感——仍是手工核对项，与 ADR-029 给桌面壳留的那条（webview 渲染）同属一类残留。
+这不是"测试绿了所以没问题"，所以写在第八节与"仍然没做"里，不藏在实现细节后面。
+</div>
+
+<h2 id="audit">八、V1 完成度清点（目标第三句：整个 V1 到底做完了没有）</h2>
+<table>
+  <thead><tr><th>段</th><th>状态</th><th>凭什么这么说</th></tr></thead>
+  <tbody>
+    <tr><td>V1-A Foundation</td><td class="ok">✅</td><td>12 份 manifest、端口层、SQLite v1→v3 + FTS5 + WAL、Event Store 以 <code>seq</code> 确定性重放</td></tr>
+    <tr><td>V1-B Project Baseline</td><td class="ok">✅</td><td>Charter / Scope / Baseline 版本化且仅用户可写，非用户写入得到 <code>CoreError::Locked</code></td></tr>
+    <tr><td>V1-C State Engine</td><td class="ok">✅</td><td>Reducer + 物化状态 + §31 十三节 PROJECT_MAP + Snapshot / Diff；ADR-030 后创建事件带整条记录</td></tr>
+    <tr><td>V1-D Capture</td><td class="warn">◐</td><td>Stage D 的七件全部有代码与测试（本轮补 §34/§35 那两件）；<strong>欠的是 §38.5 入站 MCP 采集</strong>（ADR-028）。这一行不再因为"扩展没建"而 ◐</td></tr>
+    <tr><td>V1-E Workbench</td><td class="ok">✅</td><td><code>apps/desktop</code> 十二命令、§21 八屏齐；webview 像素仍手工核对（ADR-029）</td></tr>
+    <tr><td>V1-F Context Engine</td><td class="ok">✅</td><td>§40 三层检索、§42 阶梯、§43 预算、§53 过滤、§54 审计、§44 路由、<code>prepare</code> 兜底</td></tr>
+    <tr><td>V1-G Guard</td><td class="ok">✅</td><td>六条词法 drift 规则 + Inbox + §27 Judge + 实体解析 + §7.4 确认即锁定</td></tr>
+    <tr><td>V1-H Hardening</td><td class="ok">✅</td><td>Export / Backup+Restore / Audit / Adapter Health / 监听 / 性能预算 / Golden / E2E（本轮 E2E 第一次真跑浏览器链路）</td></tr>
+  </tbody>
+</table>
+<h3>§62 七门</h3>
+<p>Continuity ✅ · Fidelity ✅ · Traceability ✅ · Drift ✅ · Recovery ✅ ·
+Degradation ✅（本轮再加上"一条坏帧不结束会话"）· <strong>Context ◐ → ✅</strong>——上一轮那个 ◐ 缺的正是把包
+"送进去"的那条写面，这一轮它有了：<code>inject</code> 填进输入框，代发永远不做。</p>
+<h3>越界检查</h3>
+<p>本轮没有新增 V1 之外的功能：宿主是子命令（不是新成员、不是新 trait、不是新数据库），
+扩展零依赖零构建。<code>AgentAdapter::inject()</code> 对已交付适配器仍返回 <code>Ok(None)</code>——
+ADR-031 把这一次记成<strong>结论</strong>而不是缺口：CLI 进程退出后不留通道，要注入就得先有常驻进程与未定作用域的连接，
+那是 §37 <code>AUTO_EXECUTE</code> 与 禁止 10 的门口。真正的输送在宿主这一侧完成，而按下按钮的人是用户。</p>
+
+<h2 id="docs">九、本轮回写的文档</h2>
+<h3>总控文件</h3>
+<ul>
+  <li><a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a> — §20 四块：CURRENT DEVELOPMENT STATE 把
+"Browser Extension + Native Messaging Owed" 换成 "Browser Host + MV3 Extension Shipped (ADR-031)"；
+LAST COMPLETED 加四条（宿主 / 扩展 / 对接修订 / E2E）并把测试计数 265→279、层数三→四；
+CURRENT BLOCKER 与 NEXT IMMEDIATE TARGET 换成"只剩 ADR-028 入站采集 + 一次真浏览器手工核对"。
+§26 的 V1-D 仍 ◐，但把欠的东西改写成了它真正的名字。</li>
+  <li><a href="docs/RECORDS.md">docs/RECORDS.md</a> — 新增一节 <em>2026-10-06 · V1-D 的浏览器门落地</em>（八节：宿主 / 扩展 / 对接抓出的两处 /
+E2E / 测试与手工验证 / 还欠着的 / §62 七门 / 回写）。</li>
+  <li><a href="V1_DEVELOPMENT.md">V1_DEVELOPMENT.md</a> — 未改：它是冻结的目标文档，本轮只实现与对账。</li>
+</ul>
+<h3>ADR（新增一条，同轮就地修订它自己一次）</h3>
+<ul>
+  <li><a href="docs/adr/ADR-总览.html#adr-031">ADR-031</a> — 浏览器的门是四个动词的推送通道，<code>open</code> / <code>inject</code> 答的是指令不是动作。
+Context 里记了动手前的六个问题；Decision 七条；本轮把它自己的 §35 origin 检查修订为"两副面孔"（Status 标 <code>amended</code>）。
+<a href="docs/adr/ADR-总览.html#adr-031">正文</a> · <a href="docs/adr/README.md">索引行</a></li>
+  <li><a href="docs/adr/ADR-总览.html#adr-020">ADR-020</a> — 测试层数与 e2e 计数（20 条）同步；
+<a href="docs/adr/ADR-总览.html#adr-027">ADR-027</a> — 未改：宿主是子命令，12 份 manifest 的巡检仍然成立。</li>
+  <li><a href="docs/adr/README.md">docs/adr/README.md</a> — 页内 <b>23</b> 条；ADR-031 索引行；
+ADR-007（浏览器扩展）的"尚未构建"由 ADR-031 结掉；下一条从 <strong>ADR-032</strong> 起。</li>
+  <li><a href="docs/adr/ADR-总览.html#reports">ADR 页「四、任务报告」</a> — 挂上本页（第四轮一行）。</li>
+</ul>
+<h3>实现与文档同步改的那一份</h3>
+<ul>
+  <li><a href="apps/extension/README.md">apps/extension/README.md</a> — §二 安装章节按真实命令重写（两个文件 + <code>mkdir</code>/<code>cp</code>），
+§三 协议表补 <code>capture</code> 的回复形状、<code>project</code> 字段、origin 的两副面孔与五个拒绝前缀。</li>
+</ul>
+
+<h2 id="deferred">十、仍然没做（如实列出）</h2>
+<ul>
+  <li><strong>§38.5 入站方向的 MCP 采集</strong>（<a href="docs/adr/ADR-总览.html#adr-028">ADR-028</a>）：工作台主动去读 agent 那边的会话。
+形状、<code>McpClientAdapter</code> 七个动词的映射、"必须 stdio 阻塞、不许为它引 async runtime"的硬约束都写在 ADR-028 里。
+<strong>这是 V1 账上最后一件有名字的代码欠项。</strong></li>
+  <li><strong>把扩展装进真 Chrome 跑一次</strong>：<code>wp host manifest</code> 落出的两行 <code>mkdir</code> / <code>cp</code> 走到底，
+看 <code>capture</code> 在一个真的 ChatGPT / Claude 会话上采到几轮、<code>inject</code> 写进了哪个输入框。
+站点改版会让选择器落空——那时扩展不会猜，而是把"试过哪些选择器、为什么没采到"照实打印（第七节那条残留就是这件事）。</li>
+  <li><strong>不算 V1 欠账的三条</strong>：§40 中文分词是记录在案的限制（<code>unicode61</code> 不切 CJK，
+测试 <code>full_text_matches_a_whole_token_not_a_piece_of_a_chinese_run</code> 钉着，V1 只要求 FTS5）；
+语义/向量检索、云同步、插件 adapter、智能偏航、实体图谱分别归 <a href="docs/evolution/">AEP-001 … AEP-005</a>；
+§5 技术树里的 <code>crates/agent-runtime</code> 与 <code>packages/*</code> 没有任何一条 V1 条款要求它们存在。</li>
+</ul>
+
+<h2 id="run">十一、怎么跑</h2>
+<pre>export PATH="$HOME/.cargo/bin:$PATH"
+cargo build -p vibe-cli          # 包名 vibe-cli，二进制 wp
+
+# ① 装宿主（Chrome 记录 + wrapper 脚本两个文件，脚本里烘焙 --db 与 --project）
+cargo run -p vibe-cli --bin wp -- --db ./.vibe/workbench.db --project &lt;项目 id&gt; \
+    host manifest --extension-id &lt;chrome://extensions 上抄下的 ID&gt;
+#   然后照命令打印出的那两行执行：mkdir -p …/NativeMessagingHosts && cp …/app.codlas.workbench.host.json 进去
+
+# ② 装载扩展：chrome://extensions → 开发者模式 → 加载已解压的扩展程序 → 选 apps/extension/
+#   弹窗五个按钮：连接自检 / 采集选中 / 导入本会话 / 打开目标网页 / 把包写进输入框（选一个 .md 包文件）
+
+# ③ 不经 Chrome 手工试这条协议（stdout 只写帧，人类可读那行在 stderr）
+cargo run -p vibe-cli --bin wp -- --db ./.vibe/workbench.db --project &lt;项目 id&gt; host serve
+#   stdin: 4 字节小端长度 + {"protocol":"codlas-nm/1","origin":"https://chatgpt.com",
+#          "command":"capture","payload":{"source":"chatgpt_web","conversationId":"c-1","messages":[…]}}
+#   临时加白名单：--allow-origin https://&lt;你的页面 host&gt;
+
+# ④ 看材料落地成什么（capture 之后）
+cargo run -p vibe-cli --bin wp -- sources       # §51：一个会话一行 Source，各停在自己的游标
+cargo run -p vibe-cli --bin wp -- state show    # Issue 从 Judge 来，不是从聊天记录直接抄来
+cargo run -p vibe-cli --bin wp -- map           # 物化 PROJECT_MAP（写穿缓存的那次读，ADR-030）
+
+cargo test --workspace           # 279 passed / 0 failed / 1 ignored</pre>
+
+<footer>
+  报告由本轮开发过程整理生成 · 2026-10-06 ·
+  详细流水见 <a href="docs/RECORDS.md">docs/RECORDS.md</a>（2026-10-06 四节），
+  当前指针见 <a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a> §20 / §26，
+  全部决定见 <a href="docs/adr/ADR-总览.html">docs/adr/ADR-总览.html</a>（23 条，含本轮的 ADR-031）。
+  上一轮：<a href="V1第三轮开发报告.html">V1 第三轮开发报告</a> ·
+  实现：<a href="crates/ingestion/src/native_messaging.rs">crates/ingestion/src/native_messaging.rs</a> ·
+  <a href="apps/cli/src/host.rs">apps/cli/src/host.rs</a> ·
+  <a href="apps/extension/">apps/extension/</a>。
+  本文件位于仓库根目录，所有链接为相对路径，本地浏览器与仓库内均可直接打开。
+</footer>
+
+</main>
+</body>
+</html>
