@@ -128,7 +128,68 @@ fn manifest(
     println!("  mkdir -p \"{}\"", target_dir.display());
     println!("  cp \"{}\" \"{}\"", record_path.display(), target.display());
     println!("The wrapper's absolute path is what Chrome launches, so move the record without moving the script.");
+    if let Some(dir) = guarded_folder(&binary) {
+        println!();
+        println!("warning: this wp binary sits under ~/{dir}, a folder macOS protects. A browser");
+        println!("launching it has no {dir} grant of its own, and the host then blocks inside dyld");
+        println!("before main(), which reaches the popup as a silent timeout, not an error. Copy wp");
+        println!("outside ~/{dir} (e.g. ~/.local/bin), rerun `wp host manifest` from the copy, or");
+        println!("grant the browser access under System Settings > Privacy & Security > Files and Folders.");
+    }
     Ok(())
+}
+
+/// The folder macOS guards behind an access grant, when `path` sits inside one of the three
+/// that need no full-disk grant. A browser launching a native host from inside them has no
+/// grant of its own, and the host blocks inside dyld before `main` — a silent hang that
+/// `manifest` should name rather than let a person debug for an evening.
+#[cfg(target_os = "macos")]
+fn guarded_folder(path: &Path) -> Option<&'static str> {
+    let home = std::env::var("HOME").ok().filter(|home| !home.is_empty())?;
+    guarded_folder_in(path, Path::new(&home))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn guarded_folder(_path: &Path) -> Option<&'static str> {
+    None
+}
+
+fn guarded_folder_in(path: &Path, home: &Path) -> Option<&'static str> {
+    ["Documents", "Desktop", "Downloads"]
+        .iter()
+        .find(|dir| path.starts_with(home.join(*dir)))
+        .copied()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::guarded_folder_in;
+    use std::path::Path;
+
+    #[test]
+    fn guarded_folders_are_recognised_by_path_component_not_text_prefix() {
+        let home = Path::new("/Users/someone");
+        assert_eq!(
+            guarded_folder_in(Path::new("/Users/someone/Documents/x/wp"), home),
+            Some("Documents")
+        );
+        assert_eq!(
+            guarded_folder_in(Path::new("/Users/someone/Desktop/wp"), home),
+            Some("Desktop")
+        );
+        assert_eq!(
+            guarded_folder_in(Path::new("/Users/someone/Downloads/wp"), home),
+            Some("Downloads")
+        );
+        assert_eq!(
+            guarded_folder_in(Path::new("/Users/someone/.local/bin/wp"), home),
+            None
+        );
+        assert_eq!(
+            guarded_folder_in(Path::new("/Users/someone/Documents-old/wp"), home),
+            None
+        );
+    }
 }
 
 /// Where a macOS Chrome looks for host records. This is the only platform-shaped constant

@@ -2,8 +2,8 @@
 
 本目录的 19 份 `ADR-0NN-*.md` 已在 2026-10-05 汇总为 **[`ADR-总览.html`](ADR-总览.html)**
 并删除（汇总前的原文在 `git show 54cdb5d:docs/adr/<文件名>.md`）。
-**决定本身的措辞未作任何修改**，改变的只有载体。页面现在共 **25** 条：ADR-028 到 ADR-033 是介质
-变更之后直接在 HTML 里追加的六条，没有对应的 `.md` 原文。
+**决定本身的措辞未作任何修改**，改变的只有载体。页面现在共 **27** 条：ADR-028 到 ADR-035 是介质
+变更之后直接在 HTML 里追加的八条，没有对应的 `.md` 原文。
 
 ADR = Architecture Decision Record，架构决策记录：一条只回答"为什么代码今天长这样"，
 固定 Context / Decision / Consequences / Ref 四块。定义与职责见 `PROJECT_MASTER.md` §11；
@@ -38,12 +38,14 @@ ADR = Architecture Decision Record，架构决策记录：一条只回答"为什
 | [ADR-031](ADR-总览.html#adr-031) | 浏览器的门是四个动词的推送通道，`open` / `inject` 答的是指令不是动作 | accepted（2026-10-06，第四轮），**amended**（§35 的 origin 检查有两副面孔：`hello` / `open` 可以报扩展自己的 id） |
 | [ADR-032](ADR-总览.html#adr-032) | 编译出来的 Context Pack 只留审计行，不建 `context_packs` 表 | accepted（2026-10-06，第五轮完成度清点：§50 最小表清单里唯一没有对应物的名字） |
 | [ADR-033](ADR-总览.html#adr-033) | §52 的 L2 是"按 role 内容哈希"：去重层不许删证据 | accepted（2026-10-06，第五轮；migration v4 重建 `messages`，时间窗口留在 L3） |
+| [ADR-034](ADR-总览.html#adr-034) | 一轮话的"话"就是它的 text 块：normalizer 跳过思考与工具机械，且**不拍平** | accepted（2026-10-07，第六轮；真会话 215 轮只进 22 轮暴露的读法缺陷） |
+| [ADR-035](ADR-总览.html#adr-035) | 宿主二进制不能住在 macOS 受保护目录；坑是静默的，所以 `wp host manifest` 就此警告 | accepted（2026-10-07，第六轮；`~/Documents` 下的二进制被 Chrome 拉起时卡死在 dyld `open()`） |
 
 缺号是刻意的：ADR-003、005、006、007、008、009、010、012 已由 `PROJECT_MASTER.md` §7 / §19
 钉得够死，另开一条只会复述总控；其中 ADR-006（Tauri）已在第三轮建成，记在
 [ADR-029](ADR-总览.html#adr-029)，ADR-007（浏览器扩展）的"尚未构建"由第四轮的
 [ADR-031](ADR-总览.html#adr-031) 结掉。
-编号不可回收，下一条从 **ADR-034** 起。
+编号不可回收，下一条从 **ADR-036** 起。
 
 ## 新增一条 ADR 的做法
 

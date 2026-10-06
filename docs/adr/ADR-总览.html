@@ -64,11 +64,11 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:v
 
 <h1>构览 Codlas · ADR 总览</h1>
 <div class="sub">Architecture Decision Records — 每一行"为什么这样决定"的正式记录 ·
-本页共 <b>22</b> 条 · 最后更新 2026-10-06</div>
+本页共 <b>27</b> 条 · 最后更新 2026-10-07</div>
 
 <div class="badges">
-  <span class="badge">ADR <b>25 条</b></span>
-  <span class="badge">覆盖 <b>ADR-001 … ADR-033</b>（缺号见下方说明）</span>
+  <span class="badge">ADR <b>27 条</b></span>
+  <span class="badge">覆盖 <b>ADR-001 … ADR-035</b>（缺号见下方说明）</span>
   <span class="badge">介质 <b>单页 HTML，原 19 份 .md 已删除</b></span>
 </div>
 
@@ -118,6 +118,8 @@ AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
 <tr><td><a href="#adr-031">ADR-031</a></td><td>The browser&#x27;s door is a push channel of four verbs, and <code>open</code> / <code>inject</code> are answered as instructions, not acts</td><td><span class="status accepted">accepted（2026-10-06，第四轮）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §34, §35, §37, §38.2/§38.3, §51, §53, §58 E2E, §60, §62; PROJECT_MASTER §7.1 V1-D, §14 第 9 项, 禁止 7, 禁止 8, 禁止 10; ADR-020, ADR-021, ADR-025, ADR-027, ADR-028, ADR-030</td></tr>
 <tr><td><a href="#adr-032">ADR-032</a></td><td>A compiled Context Pack is audited, not stored — §50&#x27;s <code>context_packs</code> table does not exist</td><td><span class="status accepted">accepted（2026-10-06，第五轮 V1 完成度清点）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §41, §42, §43, §49, §50, §54; PROJECT_MASTER §19 禁止 4, §14; ADR-002, ADR-011, ADR-013, ADR-019</td></tr>
 <tr><td><a href="#adr-033">ADR-033</a></td><td>§52&#x27;s L2 key is content hash <em>per role</em>: a dedup level must not delete evidence</td><td><span class="status accepted">accepted（2026-10-06，第五轮清点；migration v4 重建 <code>messages</code>）</span></td><td>2026-10-06</td><td>V1_DEVELOPMENT §52, §51, §14, §49; PROJECT_MASTER §19 禁止 9, §7.1 V1-D; ADR-013, ADR-014, ADR-024</td></tr>
+<tr><td><a href="#adr-034">ADR-034</a></td><td>A turn&#x27;s words are its text blocks: the normalizer skips machinery and never flattens it into speech</td><td><span class="status accepted">accepted（2026-10-07，第六轮真会话 import 连出的缺陷）</span></td><td>2026-10-07</td><td>V1_DEVELOPMENT Stage D (Conversation Normalizer), §51, §52; PROJECT_MASTER §19 禁止 9; ADR-018, ADR-033</td></tr>
+<tr><td><a href="#adr-035">ADR-035</a></td><td>The native host binary may not live under macOS&#x27;s protected folders; the trap is silent, so <code>wp host manifest</code> warns</td><td><span class="status accepted">accepted（2026-10-07，第六轮真 Chrome 台子上抓到的静默卡死）</span></td><td>2026-10-07</td><td>V1_DEVELOPMENT §34, §35, §62 (silence is the failure); ADR-031; PROJECT_MASTER §7.1 V1-D</td></tr>
   </tbody>
 </table>
 
@@ -160,6 +162,12 @@ AEP 说"什么时候该改"，ADR 说"当初为什么这么定"。</p>
       <td>ADR-032（编译出来的 Context Pack 只留审计行，§50 的 <code>context_packs</code> 表不存在）与
         ADR-033（§52 的 L2 键含 role，migration v4 重建 <code>messages</code>）；修订 ADR-013 / ADR-016 / ADR-020；
         §46 六问与 §47 五腿补齐，§28 与 §16 的 milestone 折叠第一次有测试</td></tr>
+    <tr><td>V1 第六轮 · 真环境里跑一遍：扩展进真 Chrome、真会话进链路、预想功能逐条对表</td><td>2026-10-07</td>
+      <td><a href="../../V1第六轮开发报告.html">V1第六轮开发报告.html</a></td>
+      <td>ADR-034（normalizer 只读 text 块：真日志的块数组此前让 215 轮只进 22 轮）与
+        ADR-035（macOS TCC 让 <code>~/Documents</code> 下的宿主二进制被 Chrome 拉起时静默卡死在 dyld；
+        <code>wp host manifest</code> 现在对受保护目录打印警告）；扩展在 CfT 151 上 hello / capture 两通；
+        CLI / 桌面 / MCP 三面报同一个 state hash；测试 <b>303</b> 条</td></tr>
   </tbody>
 </table>
 <div class="callout">
@@ -1588,10 +1596,83 @@ to v1: a user&#x27;s existing database has to upgrade rather than be discarded (
 </ul>
 <p><a class="top" href="#index">↑ 回到索引</a></p>
 
+<h2 id="adr-034">ADR-034 — A turn&#x27;s words are its text blocks: the normalizer skips machinery and never flattens it into speech</h2>
+<div class="meta"><div><k>Status</k><span>accepted (2026-10-07, sixth round: found by importing a real 215-turn agent session, not by a failing test)</span></div><div><k>Date</k><span>2026-10-07</span></div><div><k>Ref</k><span>V1_DEVELOPMENT Stage D (Conversation Normalizer), §51, §52; PROJECT_MASTER §19 禁止 9; ADR-018, ADR-033</span></div></div>
+<h3>Context</h3>
+<p>The normalizer was written against the shapes the first fixtures had: a message is a string, or an object whose
+<code>content</code> is a string, or <code>{"parts":[…]}</code>. Real agent logs — a 26 MB Qoder session dump,
+215 turns — write <code>message.content</code> as an array of blocks: <code>{"type":"text","text":…}</code>
+interleaved with <code>thinking</code>, <code>tool_use</code>, <code>tool_result</code> and <code>image</code> blocks.
+The array branch joined only string items, so every well-formed text block was invisible: the 215-turn conversation
+imported as <strong>22 turns</strong>. No test failed, because no fixture had ever used the shape — ADR-018&#x27;s lesson
+("the store keeps what a record says, not how it is encoded") making its third appearance.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>A turn&#x27;s words are its text blocks.</strong> <code>blocks_text()</code> reads bare string items, reads
+object blocks whose <code>type</code> is <code>"text"</code>, and — leniently — blocks that have no <code>type</code>
+but do carry a string <code>text</code>, because some logs are that sloppy.</li>
+<li><strong>Machinery is skipped, never flattened.</strong> <code>thinking</code>, <code>tool_use</code>,
+<code>tool_result</code> and <code>image</code> blocks are dropped on purpose. A tool&#x27;s exhaust is not something
+anyone <em>said</em>; storing it as a turn manufactures speech, which is the same failure 禁止 9 protects against from
+the chat-history side. If tool output ever needs to live in the workbench it belongs to evidence or artifacts,
+never to the message stream.</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>The real session imports whole: <strong>215/215 turns (35 user + 180 assistant)</strong>, +215 messages,
+  51 events (47 pending judgement); a second import adds nothing — the role-in-key idempotency ADR-033 established
+  holds on real data.</li>
+<li>Two tests pin the behaviour using exact real record shapes
+  (<code>jsonl_reads_text_blocks_and_skips_thinking_and_tool_blocks</code> and the lenient no-<code>type</code> case).</li>
+<li>Thinking blocks stay out of the message record, deliberately. A future "read the model&#x27;s reasoning" feature
+  is a different store, not a wider normalizer.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
+<h2 id="adr-035">ADR-035 — The native host binary may not live under macOS&#x27;s protected folders; the trap is silent, so <code>wp host manifest</code> warns</h2>
+<div class="meta"><div><k>Status</k><span>accepted (2026-10-07, sixth round: the extension&#x27;s first real-Chrome handshake failed with a bare timeout)</span></div><div><k>Date</k><span>2026-10-07</span></div><div><k>Ref</k><span>V1_DEVELOPMENT §34, §35, §62 (silence is the failure); ADR-031; PROJECT_MASTER §7.1 V1-D</span></div></div>
+<h3>Context</h3>
+<p>With the extension installed in a real Chrome (for Testing 151), the first <code>hello</code> never answered and the
+popup saw a timeout — no error, anywhere. A <code>sample</code> of the hung process put 100% of stacks inside
+dyld&#x27;s <code>open()</code> of the main binary: the binary lived under <code>~/Documents</code>, Chrome has no TCC
+grant for that folder, and the process is stopped <em>before</em> <code>main()</code> runs. From the browser&#x27;s side
+this is indistinguishable from a dead host. Relocating the binary outside
+<code>Documents/Desktop/Downloads</code> made the same record answer instantly.</p>
+<h3>Decision</h3>
+<ol>
+<li><strong>The location rule is part of the setup:</strong> the host binary runs from outside macOS&#x27;s protected
+folders (the bench keeps it at <code>~/codlas-demo/host/bin/wp</code>), or the browser is granted Files-and-Folders
+access under System Settings. Moving the binary invalidates any record written earlier — the record must be
+rewritten by running <code>wp host manifest</code> from the copy.</li>
+<li><strong>The product says the sentence the failure cannot:</strong> <code>wp host manifest</code> prints a warning
+when the binary it is about to reference sits under <code>~/Documents|Desktop|Downloads</code>, naming the
+silent-timeout symptom and both fixes. It <em>warns rather than refuses</em> — the record is still correct if the
+browser already has the grant, and a tool that refuses to write a working setup over a guess is worse than one
+that explains a trap.</li>
+<li>The check is a pure function over the path, compared by <strong>path components</strong> (not a text prefix —
+<code>~/DocumentsX</code> is not <code>~/Documents</code>), with its own test
+(<code>guarded_folders_are_recognised_by_path_component_not_text_prefix</code>).</li>
+</ol>
+<h3>Consequences</h3>
+<ul>
+<li>The silent-timeout class of failure now has a printed cause; the bench that hit it is the regression story.</li>
+<li>Detection is by path only: symlinks, or a copy that is relocated but still blocked some other way, can evade
+  the warning. It is a hint, not a guarantee — the authority remains macOS TCC.</li>
+<li>This is product behaviour, not bench trivia: whoever follows the extension README from a checkout inside
+  their Documents folder meets the warning at the step that would otherwise eat an afternoon.</li>
+</ul>
+<p><a class="top" href="#index">↑ 回到索引</a></p>
+
 <h2 id="provenance">六、来源与变更</h2>
 <ul>
   <li>本页正文由 <code>docs/adr/ADR-001…ADR-027</code> 共 <b>19</b> 份 markdown 汇总而成，
     汇总于 2026-10-05。<strong>决定的措辞未作任何修改</strong>；改变的只有载体。</li>
+  <li><b>ADR-034</b> 与 <b>ADR-035</b>（2026-10-07，第六轮：把预想功能换到真环境里逐条跑一遍）同样直接在页内
+    追加，本页总条数为 <b>27</b>。两条都来自真环境：ADR-034 是拿一份 26 MB / 215 轮的真 Qoder 会话
+    走 <code>wp import cli-session</code> 时，发现块数组里的 <code>{"type":"text"}</code> 全被跳过
+    （215 轮只进 22 轮）；ADR-035 是扩展第一次在真 Chrome 里伸手时，<code>~/Documents</code> 下的宿主
+    二进制被 macOS TCC 挡在 <code>main()</code> 之前、只表现为裸超时。同一轮的事实、数字与对照表记在
+    <a href="../RECORDS.md">docs/RECORDS.md</a> 与 <a href="../../V1第六轮开发报告.html">V1 第六轮开发报告</a>。</li>
   <li><b>ADR-028</b>（2026-10-06）是介质变更之后的第一条：直接在 HTML 里追加，没有对应的 <code>.md</code> 原文，
     因此上面的"19 份"仍然准确。</li>
   <li><b>ADR-032</b> 与 <b>ADR-033</b>（2026-10-06，第五轮：V1 完成度清点）同样直接在页内追加，本页总条数为
@@ -1623,7 +1704,7 @@ to v1: a user&#x27;s existing database has to upgrade rather than be discarded (
 </ul>
 
 <footer>
-  构览 Codlas · ADR 总览 · 2026-10-05 汇总 / 2026-10-06 追加 ·
+  构览 Codlas · ADR 总览 · 2026-10-05 汇总 / 2026-10-06、10-07 起直接在页内追加 ·
   条款号指向 <a href="../../V1_DEVELOPMENT.md">V1_DEVELOPMENT.md</a> 与
   <a href="../../PROJECT_MASTER.md">PROJECT_MASTER.md</a>；
   流水记录见 <a href="../RECORDS.md">docs/RECORDS.md</a>；

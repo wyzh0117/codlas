@@ -7,6 +7,101 @@
 
 ---
 
+## 2026-10-07 · V1 第六轮：扩展装进真 Chrome、真会话喂进链路、预想功能逐条对表（ADR-034 / ADR-035）
+
+这一轮的输入是用户给出的四件事：把 `apps/extension` 装进真的 Chrome 系浏览器；真实 agent 会话
+（本项目的开发对话，或任意 Qoder 记录）可以作为测试数据；把桌面端拉起来；把预想的功能逐条测试并用
+对照表列出（左预想、右执行、标明成败）。前五轮的验证都停在"测试里、管道上"，这一轮全部换到真环境做，
+于是两个只在真环境才会露头的问题被抓了出来。
+
+### 一、扩展进真 Chrome：hello 与 capture 两边都通了
+
+bench 是 Chrome for Testing 151.0.7922.34（隔离的 `--user-data-dir`，NativeMessagingHosts 记录直接放进
+那个目录，不动用户日常 profile）。扩展以 unpacked 方式装入，id `okeehdlhbkmkpoplmciiblmoejkfaieb`；
+`chrome://extensions` 上是启用状态，名字与描述和 `manifest.json` 逐字一致（截图在 `docs/assets/`）。
+
+- **hello**：`runHello()` 走 `connectNative` 一发一收，宿主回了 379 字节的能力清单——上一轮"记录写对、
+  宿主实跑 hello 回包"的那条线，这次是从**扩展自己的代码**里发出的。
+- **capture**：链路自检推送的两轮文字（user / assistant 各一条）落成 `sw-selfcheck-2026-10-06` 源下的
+  message 行，走完 Source→Conversation→Message→判定的路。
+- **边界照实说**：弹窗气泡在这个台子上渲染不了——`chrome.action.openPopup()` 在 headless、无活动窗口时
+  直接失败；测试台里以页面方式打开 popup，核对的是界面 id 与文案（`popup.js` 的 `sender.tab` 守卫会把
+  这种"假弹窗"拒掉，守卫本身因此也被验证了）。真 agent 页面上的采集/注入要用户自己的登录会话，
+  留给人在浏览器里看——与 ADR-029 给 webview 留的是同一类残留。
+
+### 二、一颗吃过半天的钉子：macOS TCC 让宿主静默卡死在 dyld
+
+宿主二进制原来就在仓库 `target/debug/wp`（即 `~/Documents` 下）。Chrome 拉起它时进程永远不产生一帧
+响应，popup 收到的是超时——没有任何错误。用 `sample` 抓栈才发现 100% 的采样都停在 dyld 的 `open()`：
+**浏览器没有 Documents 的 TCC 授权，二进制在 `main()` 之前就被挡住了**。
+
+- 修法一（环境）：把二进制复制到受保护目录之外（`~/codlas-demo/host/bin/wp`），hello 立刻回包。
+- 修法二（产品）：`wp host manifest` 现在会检查这个坑——二进制若位于 `~/Documents|Desktop|Downloads`，
+  就地打印一段警告，说清"会静默超时、怎么修"。警告而不是拒绝：浏览器**已经**被授权时记录仍然是好的。
+  判据是纯函数，按目录段比较而不是文本前缀（`guarded_folders_are_recognised_by_path_component_not_text_prefix`）。
+  记为 **ADR-035**。
+
+### 三、真会话进链路，顺出一个会吃证据的缺陷（ADR-034）
+
+用本项目的开发会话（26 MB JSONL，215 轮）走 `wp import cli-session`。**第一次只读进 22 轮**——
+真日志的 `message.content` 是块数组（`{"type":"text"}` 混着 `thinking` / `tool_use` / `tool_result`），
+而 normalizer 的数组分支只认纯字符串项，带 `type` 的文本块全被跳过。修法（**ADR-034**）：
+`blocks_text` 只读 `type:"text"`（以及缺 `type` 但有 `text` 的宽容形状），`thinking` / `tool_use` /
+`tool_result` / `image` 一律跳过且**不拍平**——工具的产出不是谁说过的话，把它当成轮次就是制造证据。
++2 条用真实记录形状写的测试。
+
+修后重导：**215/215 轮（35 user + 180 assistant）**，+215 messages、51 events（47 条待判定）；
+accept 第一条后 state seq 37→66、tasks 2→3。**第二次重导 0 新增**——ADR-033 的 role-in-key 在真数据上复验。
+
+### 四、桌面端：拉起、重启、三面一个 hash
+
+窗口（1240×820）按帧核对：第一屏"变动"列出上一快照以来的模块变动与"等你决定的条目"（每行带自己
+能做的动作，§7.4 的确认手势；启动那次屏上是 49 条待决定）。**重启验证**：杀掉进程重开，窗口读出的是
+矩阵跑完后的状态——seq 1699 / 1651 条已折叠、任务行 `todo → doing`、1628 个交付物变动，全部来自
+CLI 写下的同一份事件。跨面一致性拿到一个硬证据：`wp map show` 的 State hash、桌面窗口头部的
+`53a6bdda3d4f…`、`wp-mcp` 的 `project_map.sourceStateHash` **三处逐字节相同**
+（`53a6bdda3d4f5cea908983d2529d5b4d73b2cc3801972556ff1d887f8293e78e`）——单状态来源（禁止 4）
+不是一句口号，是三个面报同一个数字。
+
+一句观察记在账上：数据到了 1651 事件 / 1628 交付物之后，桌面**冷启动首屏**约半分钟
+（折叠 + diff + 渲染）。§59 的预算管的是 CLI 链路，桌面首屏还没有预算断言——先记下来，不发明结论。
+
+### 五、预想功能矩阵（用户要求的对照表）
+
+29 节矩阵跑在 demo 库上（state / review / timeline / map / snapshot / diff / drift / inbox / search /
+reindex / duplicates / evidence / context / policy / secret / audit / export / backup / adapters /
+sources / watch / event / MCP / charter），全部原始输出在 `docs/assets/v1-round6-matrix.log`，
+左右对照表在第六轮报告里。这里只记三处"允许的失败"与两处用法发现：
+
+- 适配器健康里 `transcript` 显示 failed——那是用错门（JSONL 走了单文档通道）留下的真实记录；
+  换对门（`import cli-session`）后 `generic-cli` 与 `qoder` 都是 ok。这条失败不动，它教人别再用错门。
+- Context Pack 先拒后允：默认策略下 `--to chatgpt_web` 三连拒（§53，audit 有行）；把策略翻到 cloud 后
+  同一问题编译出 42 items / 1560 tokens 的包（audit：read 1672 → redacted 1629），随后翻回。
+- 两处用法在矩阵里踩到、改对、留在这段话里：`wp event` 的事件类型是**大写**的
+  （`crates/domain/src/event_catalog.rs`）；`wp inbox resolve` 的 `--kind` 是 `drift` 不是 `driftalert`。
+- MCP 读面六工具全部现场验过（initialize / tools/list / project_state / project_map / context_pack /
+  search），应答的 stateHash 与 CLI、桌面一致；charter 的锁由 `charter history` 读到 `v1 locked`。
+
+### 六、测试与账目
+
+`cargo test --workspace` = **303 passed / 0 failed / 1 ignored**（Keychain 仍需 opt-in 环境变量），
+零 warning；比上一轮 +3：normalizer 2 条、host manifest 守卫 1 条。本轮结束时代码侧未提交的有
+`apps/cli/src/host.rs`、`crates/ingestion/src/normalizer.rs` 与新测试文件，连同四份文档与报告一起提交。
+
+### 七、仍然没有机器保证的（都是"需要人的屏幕"）
+
+1. 真 agent 页面（chatgpt.com / claude.ai / gemini.google.com）上的 DOM 采集与输入框注入——要用户
+   自己的登录会话；本轮装进的是隔离 bench（CfT），用户自己 profile 里的那一次留给用户在场时做。
+2. 扩展弹窗气泡的渲染——headless 台子没有活动窗口。
+3. Tauri webview 的交互式点击——ADR-029 的老残留，本轮仍然以窗口截图核对为限。
+
+### 八、V1 账上的剩余
+
+仍然只有 **ADR-028 的入站 MCP 采集**——§26 的 V1-D 保持 ◐。它缺的不是代码位置，而是一个值得
+工作台主动去读的 agent 会话源；触发条件不变。
+
+---
+
 ## 2026-10-06 · V1 第五轮：不按上一轮的自报验收，把整个 V1 重查一遍（ADR-032 / ADR-033，就地修订 ADR-013 / ADR-016 / ADR-020 / ADR-022）
 
 这一轮的输入不是"下一步做什么"，而是一个问题：**前四轮的账，有没有哪一行是拿自报当证据记上去的？**

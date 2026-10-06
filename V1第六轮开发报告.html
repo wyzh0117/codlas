@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>构览 Codlas · V1 第六轮开发报告（2026-10-07）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --ink:#e6e9ef; --muted:#9aa4b2;
+    --line:#252b35; --ok:#3fb950; --warn:#d29922; --no:#f85149; --accent:#58a6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif}
+  main{max-width:1080px;margin:0 auto;padding:40px 24px 96px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+  h2{font-size:19px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+  p{margin:10px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12.5px;color:var(--muted)}
+  .badge b{color:var(--ink);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h4{margin:0 0 4px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .card .v{font-size:22px;font-weight:650}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel);color:var(--muted);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+  td code,li code,p code{background:#1c2230;border:1px solid var(--line);border-radius:4px;
+    padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ok{color:var(--ok);font-weight:600}
+  .warn{color:var(--warn);font-weight:600}
+  .no{color:var(--no);font-weight:600}
+  td.sec,tr.sec td{background:#131722;color:var(--accent);font-weight:650;font-size:13px;letter-spacing:.5px}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid #24313f}
+  a:hover{border-bottom-color:var(--accent)}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:4px 0}
+  pre{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .callout{border-left:3px solid var(--accent);background:var(--panel);
+    padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  .callout.no{border-left-color:var(--no)}
+  nav{position:sticky;top:0;background:rgba(15,17,21,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin:-40px -24px 28px;z-index:2}
+  nav .in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+  nav a{border:0;color:var(--muted)}
+  nav a:hover{color:var(--accent)}
+  figure{margin:16px 0}
+  figure img{width:100%;border:1px solid var(--line);border-radius:10px;display:block}
+  figcaption{color:var(--muted);font-size:12.5px;margin-top:6px}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+
+<nav><div class="in">
+  <a href="#ask">四件事</a>
+  <a href="#matrix">预想 vs 执行</a>
+  <a href="#chrome">真 Chrome 与 TCC</a>
+  <a href="#session">真会话与 normalizer</a>
+  <a href="#desktop">桌面</a>
+  <a href="#mcp">MCP</a>
+  <a href="#tests">测试与账目</a>
+  <a href="#humans">仍然要人的三处</a>
+  <a href="#run">怎么跑</a>
+  <a href="#writeback">回写材料与证据</a>
+</div></nav>
+
+<h1>V1 第六轮开发报告 · 预想功能对表：真 Chrome、真会话、真桌面</h1>
+<p class="sub">2026-10-07 · 本轮不新增 V1 之外的概念。做的是用户点名的四件事：把扩展装进真浏览器、
+拿真会话喂进链路、把桌面拉起来、把"最初预想的功能"逐条跑一遍并左右对表。
+过程中修出两个会吃证据的缺陷（ADR-034 / ADR-035），其余全部结论以真机跑出的数字作数。</p>
+
+<div class="badges">
+  <span class="badge">阶段 <b>V1 第六轮 · 真机装入与逐条对表</b></span>
+  <span class="badge">ADR <b>27 条</b>（新增 034 / 035）</span>
+  <span class="badge">测试 <b>303 通过 / 0 失败 / 1 忽略</b>（+3，零 warning）</span>
+  <span class="badge">矩阵 <b>29 节逐条跑过</b>（真库，seq 到 1699）</span>
+  <span class="badge">证据 <b>docs/assets/ 6 份</b>（截图与日志）</span>
+  <span class="badge">V1 欠项 <b>1 项</b>（入站 MCP 采集，ADR-028）</span>
+</div>
+
+<h2 id="ask">一、本轮要回答的四件事</h2>
+<table>
+  <thead><tr><th>用户的原话</th><th>本轮交付</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td><strong>chrome 上安装本扩展</strong></td>
+      <td><code>apps/extension</code>（MV3 + nativeMessaging）装进 Chrome for Testing 151，
+        扩展 id <code>okeehdlhbkmkpoplmciiblmoejkfaieb</code>；native host <code>wp host serve</code> 握手成功</td>
+      <td><span class="ok">✅ 装入并双向通</span></td></tr>
+    <tr><td><strong>agent 侧对话可用本项目开发记录来测</strong></td>
+      <td>本项目 CLI 会话（26 MB JSONL）经 <code>wp import cli-session</code> 导入：
+        <strong>215/215 轮</strong>（35 user + 180 assistant）进链路，产出 215 messages / 51 events / 47 pending</td>
+      <td><span class="ok">✅ 真材料闭环</span></td></tr>
+    <tr><td><strong>桌面端帮我拉起一下</strong></td>
+      <td>Tauri 窗口 <strong>1240×820</strong> 拉起并用截图核对；随后对活动库重启，
+        读到 CLI 刚写入的境界（seq 1699）</td>
+      <td><span class="ok">✅ 两面同库</span></td></tr>
+    <tr><td><strong>预想功能逐条测试并左右对表</strong></td>
+      <td>29 节能力矩阵在真库上跑完（下文对照表）；
+        三块界面与安全边界一并核对</td>
+      <td><span class="ok">✅ 见第二章</span></td></tr>
+  </tbody>
+</table>
+
+<h2 id="matrix">二、预想 vs 执行对照表（本轮核心交付）</h2>
+<p>左列是<strong>开发最初写在 Charter / V1 文档里的预想</strong>（原文口径），右列是<strong>本轮在真库里实际跑出的执行情况</strong>。
+标记含义：<span class="ok">✅ 成功</span>（本轮真跑通，数字为证）·
+<span class="warn">◐ 条件成功</span>（功能在，但有一次是"用错门"或依赖人的前置）·
+<span class="no">⏸ 留给人的屏幕</span>（代码不在场证明：需要真人/真账号操作才能核）。</p>
+
+<h3>A · Charter 五条 Must-have（用户锁定的原文）</h3>
+<table>
+  <thead><tr><th>开发最初的预想</th><th>本轮执行情况（真库数字）</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td><strong>event-first 的项目记录</strong></td>
+      <td>库到 <code>seq 1699</code>：1649 events 折叠出 1628 artifacts / 3 tasks / 1 issue；
+        事件词汇表 42 种（<code>crates/domain/src/event_catalog.rs</code>）；
+        手工补事件 <code>TASK_STARTED</code> → seq 1696→1697 立即进折叠</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td><strong>charter 与 scope 的用户锁定</strong></td>
+      <td>charter v1 <code>locked:true</code>、history 只有 v1；非用户写入被 <code>CoreError::Locked</code> 挡；
+        scope 里 <code>allowCloudModel=false</code> 实测把云端目标拒了 3 次（§53）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td><strong>自动编译的 PROJECT_MAP</strong></td>
+      <td><code>wp map show / save</code> 编出 6687 B markdown，带 <code>sourceStateHash</code>；
+        与桌面标题栏、MCP 输出三面同 hash</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td><strong>偏航提示与 inbox</strong></td>
+      <td><code>drift check</code> 从真会话里认出 3 条 feature_creep（info 级，只提示）；
+        inbox 五类队列在列；<code>inbox resolve --kind drift --action dismiss</code> 实测 3→2（seq 1699）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td><strong>按问题动态编译的 context pack</strong></td>
+      <td>先拒：云目标被 policy 拒 ×3（refuse_cloud_target 留审计行）；
+        flip 后放行：<strong>42 items / 1560 tok</strong>，charter 排最前，审计 <code>redacted 1629</code>；
+        <code>context prepare</code> 走 adapter <code>fallback()</code> 契约</td>
+      <td><span class="ok">✅</span></td></tr>
+  </tbody>
+</table>
+
+<h3>B · V1 能力面（29 节矩阵，逐条跑过）</h3>
+<table>
+  <thead><tr><th>开发最初的预想</th><th>本轮执行情况</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr class="sec"><td colspan="3">状态与审阅</td></tr>
+    <tr><td>state summary 一圈可读</td>
+      <td>开跑时 <code>seq 37 · 17 events · 2 tasks · 1 issue</code>；收尾 <code>seq 1697 · 1649 events · 1628 artifacts</code></td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>review 列表与人工接受</td>
+      <td>pending 6 条（置信度 0.82–0.86）；接受 <code>0e39e10f…</code> 后
+        <code>seq 37→66</code>、tasks <code>2→3</code>——接受确实是人的动作，且立即进折叠</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>timeline 带 seq / actor / status</td>
+      <td>输出 seq 66 / 37 / 36 / 29 / 28 / 13，agent 与 user 两种 actor、accepted 状态俱全</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr class="sec"><td colspan="3">地图与快照</td></tr>
+    <tr><td>PROJECT_MAP 自动编译</td>
+      <td>15 个小节（Intent/Phase/Scope/Decisions/Drift…）自状态折叠而成，6687 B</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>snapshot + diff</td>
+      <td>空库先报 <code>no snapshots</code>；take <code>matrix-run @ seq 66</code>；
+        再 diff → "Since Last Snapshot"（基线相同即 nothing recorded，不装样子）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr class="sec"><td colspan="3">守卫与检索</td></tr>
+    <tr><td>drift 检查</td>
+      <td>3 条 <code>feature_creep info</code>，来源是<strong>真会话导入的任务标题</strong>——真材料真的走到了规则层</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>inbox 五类与处置动作</td>
+      <td>driftalert×3 + decisionproposal×2，每行带 [Keep Boundary / Create Change Proposal / Dismiss]；
+        <code>resolve --kind drift</code> 处置成功</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>search 三层检索</td>
+      <td>"回写总控" 命中 message（0.850，structured 层）；<code>reindex</code> 后 <strong>296 records</strong> 入索引</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>L3 近似重复只提示不删</td>
+      <td>thread <code>0b2a…</code> 三组 1.000 近似对（同文不同 message），两侧俱在——提示层从不删证据（ADR-024）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>evidence 可回溯</td>
+      <td>message 行指向其来源 message 行，<code>kind:id</code> 可点读（§17/§45）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr class="sec"><td colspan="3">Context Engine 与安全</td></tr>
+    <tr><td>按问题编译 + policy 先过滤</td>
+      <td>plan / build / prepare 三个动词先在 <code>allowCloudModel=false</code> 下<strong>全部被拒</strong>（审计有行）；
+        flip 后放行 42 items / 1560 tok</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>policy 五开关可查可改</td>
+      <td><code>policy show</code> local-only / allow-cloud-model / never-send-files / never-send-raw-conversation / redact-secrets 全在列；
+        <code>check</code> 一句话说清拒因；flip 后原样翻回</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>secret 只进引用不进明文</td>
+      <td><code>put/list/get/rm</code> 全通，值落 <code>local:83244d5e…</code>，SQLite 只存 <code>secret_ref</code>（§53）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>audit 审计行</td>
+      <td>refuse 行 ×3 + <code>build_context_pack read 1672 → context_pack:8903b4f8… redacted 1629</code>——
+        连"读了多少、动了谁、脱敏了几条"都有账</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr class="sec"><td colspan="3">出包、备份与采集</td></tr>
+    <tr><td>export map / pack</td>
+      <td>map 6687 B；<code>.projectpack</code> 103491 B / 7 members（zip 且自述是投影，ADR-019）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>backup status / create / verify</td>
+      <td>status: schema v4 / integrity ok；create 出 <code>69 events / 3152 KiB / schema v4</code>；verify 复检 ok（ADR-023）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>adapter health 四态</td>
+      <td>transcript <strong>failed</strong>（编码诊断行号俱全）+ generic-cli ok + qoder ok。
+        真相：那次 failed 是<strong>用错门</strong>——真会话走 <code>import cli-session</code> 才通；
+        门没错，探针摸错了门</td>
+      <td><span class="warn">◐</span></td></tr>
+    <tr><td>sources 来源台账</td>
+      <td>4 条（generic_cli ×2 / chatgpt_web ×2），含扩展自检来源 <code>sw-selfcheck-2026-10-06</code></td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>watch 文件与 git 信号</td>
+      <td>demo 目录 1628 files read → <strong>1628 changed → 1628 events</strong>（首遍为基线，全部按 changed 记账）；
+        git 侧先报 branch main / 3 uncommitted（§39 / ADR-022）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>手工事件与词汇表</td>
+      <td>小写 <code>task_added</code> 被拒（error 直接指明）；大写 <code>TASK_STARTED</code> 通过 → seq 1697。
+        词汇表在 <code>event_catalog.rs</code>，42 种全大写——这是文档没写死、由目录定义的一课</td>
+      <td><span class="ok">✅</span></td></tr>
+  </tbody>
+</table>
+
+<h3>C · 三块界面（同一实现的三个门）</h3>
+<table>
+  <thead><tr><th>开发最初的预想</th><th>本轮执行情况</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td><strong>桌面壳</strong>：diff 优先，先看变动再决定生效</td>
+      <td>窗口 1240×820 拉起（截图在案）；首屏 49 pending 待判；对活动库重启后读
+        <code>seq 1699 / 1651 folded / todo→doing / 1628 artifact diffs</code>；
+        CLI、桌面、MCP 三面 State hash 逐字节相同：
+        <code>53a6bdda…f8293e78e</code></td>
+      <td><span class="ok">✅</span>（冷启动 ~30–40s，见第七章观察）</td></tr>
+    <tr><td><strong>浏览器扩展</strong>：Chrome 里装，native 双通道</td>
+      <td>CfT 151 装入，id <code>okeehdlhbkmkpoplmciiblmoejkfaieb</code>；
+        <code>hello</code> 收回 379 B capabilities；<code>capture</code> 真落 2 条消息
+        （source <code>sw-selfcheck-2026-10-06</code>）；
+        popup 气泡 headless 不可渲染、真页面采集需真人登录——见第七章</td>
+      <td><span class="warn">◐ 通道通，真页待人</span></td></tr>
+    <tr><td><strong>MCP 读面</strong>：agent 从外面读工作台</td>
+      <td><code>wp-mcp</code> stdio JSON-RPC：initialize ok（协议 2024-11-05）；
+        6 工具全在；<code>project_state</code> 1426406 B，tasks 3 / issues 1 / artifacts 1628 = CLI 同数；
+        <code>project_map</code> 的 hash = 桌面显示的那个；<code>context_pack</code> 23 items；search 命中 5 条</td>
+      <td><span class="ok">✅ 出向齐</span></td></tr>
+    <tr><td><strong>MCP 入向</strong>（工作台去读 agent 会话）</td>
+      <td>未建：触发条件与届时形状记在 <a href="docs/adr/ADR-总览.html#adr-028">ADR-028</a>——
+        这是 V1 目前唯一还欠的代码项</td>
+      <td><span class="no">⏸ 按决定欠着</span></td></tr>
+  </tbody>
+</table>
+
+<h3>D · 安全与边界（对表：预想的行为 vs 实测）</h3>
+<table>
+  <thead><tr><th>预想边界</th><th>本轮实测</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>§7.8 发送永远是人的动作</td>
+      <td>扩展只做题写（fill）与采集（capture），<code>open</code>/<code>inject</code> 答的是指令不是动作（ADR-031）</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>§53 Keychain / secret_ref，明文不进 SQLite</td>
+      <td>实测存读删走 <code>local:…</code> 引用；SQLite 内无明文值</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>禁止 4：永远只有一个 Project State</td>
+      <td>CLI / 桌面 / MCP 三面同 hash——不是"声称一致"，是同一次折叠的三个读法</td>
+      <td><span class="ok">✅</span></td></tr>
+    <tr><td>禁止 5 / 8：Charter 不可被模型改写、未触发不预实现</td>
+      <td>charter 锁 v1 实测；入站 MCP、语义检索等按 ADR-016 / AEP 挂着，没有偷偷建</td>
+      <td><span class="ok">✅</span></td></tr>
+  </tbody>
+</table>
+
+<h2 id="chrome">三、真 Chrome 与 TCC：一条静默卡死的根因（ADR-035）</h2>
+<p>扩展装入后第一次跑 native host，Chrome 侧<strong>永远等不到回答</strong>——进程没报错、没日志、
+连一行 stderr 都没有。用 <code>sample</code> 抓了 Chrome 拉起的那个进程，样本 100% 停在
+<code>dyld</code> 的 <code>open()</code>：<strong>macOS TCC 在 <code>main()</code> 之前就把
+<code>~/Documents</code> 下的二进制拦下了</strong>，Chrome 拉起的进程连第一行代码都没跑到。</p>
+<ul>
+  <li><strong>根因不是权限没给</strong>，是位置：native host 二进制不该住在
+    <code>~/Documents | Desktop | Downloads</code>——TCC 的守卫目录按路径拦进程，不问签名；</li>
+  <li><strong>修法</strong>：宿主装到守卫目录之外（本轮移到 <code>~/codlas-demo/host/bin/</code>），一次即通；</li>
+  <li><strong>补防</strong>：<code>wp host manifest</code> 现在会检测并警告（<code>guarded_folder()</code>），
+    测试 <code>guarded_folders_are_recognised_by_path_component_not_text_prefix</code> 把"按路径分量识别、
+    不按文本前缀"钉死（否则 <code>~/Documents-archive</code> 这类会误伤）；</li>
+  <li>决定全文：<a href="docs/adr/ADR-总览.html#adr-035">ADR-035</a>——
+    <em>只警告不拒绝</em>，因为正确位置因机器而异，且拒绝会把"能用但不在推荐位置"的合法安装也打死。</li>
+</ul>
+<figure>
+  <img src="docs/assets/v1-round6-extensions.png" alt="chrome://extensions 中的 Codlas 采集">
+  <figcaption>Chrome for Testing 151 · chrome://extensions —— "Codlas 采集"已启用（docs/assets/v1-round6-extensions.png）</figcaption>
+</figure>
+<figure>
+  <img src="docs/assets/v1-round6-popup.png" alt="扩展 popup">
+  <figcaption>扩展 popup（docs/assets/v1-round6-popup.png）。气泡状态在 headless 下不可渲染，见第七章</figcaption>
+</figure>
+
+<h2 id="session">四、真会话进链路：normalizer 会吞掉对话（ADR-034）</h2>
+<p>拿本项目自己的 CLI 会话（26 MB JSONL，215 轮）做真材料。第一遍导入只进来 <strong>22/215</strong> 轮——
+少的不是边角，是<strong>所有 assistant 的回答</strong>。查下去是 normalizer 把消息里的
+content 块当成了一段平文：<code>thinking</code>、<code>tool_use</code>、<code>tool_result</code>、
+<code>image</code> 这些机器块被拍平进"发言"，而真正的 <code>type:"text"</code> 块反而被吞。</p>
+<table>
+  <thead><tr><th>修复前 / 后</th><th>数字</th></tr></thead>
+  <tbody>
+    <tr><td>修复前</td><td>22 / 215 轮（丢弃全部助手文本）</td></tr>
+    <tr><td>修复后</td><td><strong>215 / 215 轮</strong>（35 user + 180 assistant），导入 215 messages / 51 events / 47 pending</td></tr>
+    <tr><td>幂等复检</td><td>第二遍导入 0 新增（drain 身份而非时间戳，§51）</td></tr>
+    <tr><td>事件闭环</td><td>接受其中一条 claim → <code>seq 37→66</code>，tasks 2→3</td></tr>
+    <tr><td>新增测试</td><td><code>crates/ingestion/tests/normalizer.rs</code> ×2：
+      <code>jsonl_reads_text_blocks_and_skips_thinking_and_tool_blocks</code> /
+      <code>a_block_without_a_type_but_with_text_is_still_text</code></td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <strong>为什么值得一条 ADR：</strong>这不是解析口味问题，是<strong>禁止 9 的边界</strong>——
+  机器块被拍平成"发言"就是把机械动作伪装成人的话语，把工具往返当成人的观点。
+  <a href="docs/adr/ADR-总览.html#adr-034">ADR-034</a>：只读 <code>type:"text"</code>，
+  thinking / tool_use / tool_result / image 一律跳过、绝不拍平；无 type 但有 text 的块仍算文本。
+</div>
+
+<h2 id="desktop">五、桌面：同库的两面，同一次折叠</h2>
+<p>Tauri 2 壳只做展示（ADR-029），本轮实拉两台窗口状态：</p>
+<figure>
+  <img src="docs/assets/v1-round6-desktop-launch.png" alt="桌面启动首屏">
+  <figcaption>启动首屏：49 条 pending 待判，diff 优先（docs/assets/v1-round6-desktop-launch.png）</figcaption>
+</figure>
+<figure>
+  <img src="docs/assets/v1-round6-desktop.png" alt="桌面重启后读到新境界">
+  <figcaption>对活动库重启：seq 1699 / 1651 folded / todo→doing / 1628 artifact diffs；
+    标题栏 hash 与 CLI、MCP 逐字节相同（docs/assets/v1-round6-desktop.png）</figcaption>
+</figure>
+<p>三面同 hash 是本轮"禁止 4"最硬的一条证明：<strong>桌面不是第二套逻辑</strong>，
+它读的就是 CLI 刚写进的那一份。冷启动在海量事件（1651）下约 30–40 秒，详见第七章。</p>
+
+<h2 id="mcp">六、MCP：出向六工具已在真库上点过名</h2>
+<pre>initialize      → protocolVersion 2024-11-05, serverInfo codlas-workbench 0.1.0
+tools/list      → project_state, project_map, project_timeline, search, open_evidence, context_pack
+project_state   → 1426406 bytes, tasks 3 / issues 1 / artifacts 1628（= CLI 同数，同端口）
+project_map     → 5415 bytes markdown, sourceStateHash 53a6bdda…（= 桌面标题栏）
+context_pack    → 23 items, charter 在最前, 本地目标不触发拒
+search "同步"    → 5 hits（issue + messages，跨层）
+stderr          → serving …/workbench.db over stdio / stdin closed after 6 answers</pre>
+<p>证据留档：<a href="docs/assets/v1-round6-mcp.txt">docs/assets/v1-round6-mcp.txt</a>（压缩版；原始 1.5 MB 响应不进仓库）。
+入向采集仍欠，名字不变：<a href="docs/adr/ADR-总览.html#adr-028">ADR-028</a>。</p>
+
+<h2 id="tests">七、测试与账目</h2>
+<div class="grid">
+  <div class="card"><h4>测试总数</h4><div class="v ok">303 / 0 / 1</div><p class="sub">通过 / 失败 / 忽略，零 warning</p></div>
+  <div class="card"><h4>本轮新增</h4><div class="v">+3</div><p class="sub">normalizer ×2（ADR-034）+ host 守卫 ×1（ADR-035）</p></div>
+  <div class="card"><h4>ADR 总页数</h4><div class="v">27</div><p class="sub">新增 ADR-034 / ADR-035，序号从 036 起</p></div>
+  <div class="card"><h4>矩阵</h4><div class="v">29 节</div><p class="sub">真库 seq 37 → 1699 全程</p></div>
+</div>
+<p>账目规则沿用上一轮：<strong>写进文档的每个数字必须来自最后一次改文件之后跑出的那一遍</strong>，
+且测试的声称以测试体为准、不以测试名。本轮 303 是 2026-10-07 00:0x 的完整跑（全仓 <code>cargo test</code>）计数。</p>
+
+<h2 id="humans">八、仍然要人的三处（诚实清单）</h2>
+<table>
+  <thead><tr><th>项</th><th>为什么本机做不了</th><th>留给谁</th></tr></thead>
+  <tbody>
+    <tr><td>扩展 popup 的气泡状态</td>
+      <td>headless 截图管线不渲染扩展气泡，只能验证到 popup 页本体</td>
+      <td>真人在自己 Chrome 里点一下扩展图标</td></tr>
+    <tr><td>真网页采集（如 ChatGPT 页内）</td>
+      <td>需要真人登录态；本项目只验证了 <code>capture</code> 通道与自检来源</td>
+      <td>用户用自己的 Chrome 配置登录后采一次</td></tr>
+    <tr><td>桌面冷启动观感</td>
+      <td>1651 事件下首屏约 30–40 秒（第一次截图还是"正在装载"），
+        属观察值：§59 预算覆盖的是 CLI 链路，桌面首屏尚无预算断言</td>
+      <td>是否给桌面首屏立预算，V2 再议（AEP 材料）</td></tr>
+  </tbody>
+</table>
+
+<h2 id="run">九、怎么跑（本轮全部结论的复现路径）</h2>
+<pre>export PATH="$HOME/.cargo/bin:$PATH"
+
+# 扩展（真 Chrome）
+./target/debug/wp host serve --db ~/codlas-demo/workbench.db      # native host
+# Chrome for Testing 151 → chrome://extensions → 载入 apps/extension → 握手 hello → capture
+
+# 真会话导入（幂等，可重复跑）
+./target/debug/wp import cli-session &lt;会话.jsonl&gt; --db ~/codlas-demo/workbench.db
+
+# 桌面
+./target/debug/wp-desktop --db ~/codlas-demo/workbench.db
+
+# MCP
+./target/debug/wp-mcp --db ~/codlas-demo/workbench.db --project f379cea720ef494cad7f2995a565c1bb
+
+# 矩阵与测试
+# 29 节矩阵全文：docs/assets/v1-round6-matrix.log
+cargo test</pre>
+
+<h2 id="writeback">十、回写材料与证据（报告所引，皆在本仓库）</h2>
+<h3>回写的文档</h3>
+<ul>
+  <li><a href="PROJECT_MASTER.md">PROJECT_MASTER.md</a> —— §20 四个块（CURRENT DEVELOPMENT STATE / LAST COMPLETED /
+    CURRENT BLOCKER / NEXT IMMEDIATE TARGET）与 §26 V1-D、V1-E 两行（第六轮条目）</li>
+  <li><a href="V1_DEVELOPMENT.md">V1_DEVELOPMENT.md</a> —— §26 执行指令的 Stage 清单口径</li>
+  <li><a href="docs/RECORDS.md">docs/RECORDS.md</a> —— 第六轮完整叙事（八个分节：真 Chrome / TCC / 真会话 /
+    桌面 / 矩阵 / 测试 / 三处人的屏幕 / ADR-028）</li>
+  <li><a href="docs/adr/ADR-总览.html">docs/adr/ADR-总览.html</a> —— 27 条决定；本轮新增
+    <a href="docs/adr/ADR-总览.html#adr-034">ADR-034</a>（normalizer 只读 text 块）与
+    <a href="docs/adr/ADR-总览.html#adr-035">ADR-035</a>（宿主位置与 TCC）</li>
+  <li><a href="docs/adr/README.md">docs/adr/README.md</a> —— ADR 索引与新增做法（下一条从 ADR-036 起）</li>
+</ul>
+<h3>证据（截图与日志）</h3>
+<ul>
+  <li><a href="docs/assets/v1-round6-extensions.png">docs/assets/v1-round6-extensions.png</a> —— 扩展在真 Chrome 中启用</li>
+  <li><a href="docs/assets/v1-round6-popup.png">docs/assets/v1-round6-popup.png</a> —— 扩展 popup 本体</li>
+  <li><a href="docs/assets/v1-round6-desktop-launch.png">docs/assets/v1-round6-desktop-launch.png</a> —— 桌面启动首屏（49 pending）</li>
+  <li><a href="docs/assets/v1-round6-desktop.png">docs/assets/v1-round6-desktop.png</a> —— 桌面重启读到 seq 1699，hash 三面相同</li>
+  <li><a href="docs/assets/v1-round6-matrix.log">docs/assets/v1-round6-matrix.log</a> —— 29 节矩阵完整日志与两条收尾（26–29 节）</li>
+  <li><a href="docs/assets/v1-round6-mcp.txt">docs/assets/v1-round6-mcp.txt</a> —— MCP 六工具点名的压缩留档</li>
+</ul>
+
+<footer>
+  V1 第六轮 · 2026-10-07 · 本报告与回写文档在同一提交中入库；
+  数字口径：测试 303/0/1（全仓 cargo test，零 warning），矩阵为真库 seq 37→1699，
+  同 hash 三面为 <code>53a6bdda3d4f5cea908983d2529d5b4d73b2cc3801972556ff1d887f8293e78e</code>。
+  V1 唯一欠项：入站 MCP 采集（<a href="docs/adr/ADR-总览.html#adr-028">ADR-028</a>）。
+</footer>
+
+</main>
+</body>
+</html>

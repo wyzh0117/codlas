@@ -320,6 +320,29 @@ fn role_of(value: &Value) -> Option<MessageRole> {
     })
 }
 
+/// The words of a `content` block array. Real agent logs write
+/// `[{"type":"text","text":"…"}]` and interleave `thinking`, `tool_use`, `tool_result` and
+/// `image` blocks. String items and `text` blocks are read; machinery is skipped, never
+/// flattened into a turn, because a tool's exhaust is not something anyone said. A block
+/// with no `type` but a string `text` is taken as text — some logs are that lenient.
+fn blocks_text(array: &[Value]) -> String {
+    array
+        .iter()
+        .filter_map(|item| {
+            if let Some(text) = item.as_str() {
+                return Some(text.to_string());
+            }
+            let block = item.as_object()?;
+            match block.get("type").and_then(Value::as_str) {
+                None | Some("text") => {}
+                Some(_) => return None,
+            }
+            block.get("text").and_then(Value::as_str).map(String::from)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn content_of(value: &Value) -> Option<String> {
     for key in CONTENT_KEYS {
         let Some(raw) = value.get(key) else { continue };
@@ -350,11 +373,7 @@ fn content_of(value: &Value) -> Option<String> {
             }
         }
         if let Some(array) = raw.as_array() {
-            let joined = array
-                .iter()
-                .filter_map(|item| item.as_str().map(String::from))
-                .collect::<Vec<_>>()
-                .join("\n");
+            let joined = blocks_text(array);
             if !joined.trim().is_empty() {
                 return Some(joined);
             }

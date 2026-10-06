@@ -915,8 +915,9 @@ V1
 
 CURRENT DEVELOPMENT STATE:
 V1 Core Loop Implemented / CLI Workbench Runnable / Hardening Done / MCP Read Surface Shipped /
-Desktop Shell Shipped (ADR-029) / Browser Host + MV3 Extension Shipped (ADR-031) /
-V1 Re-audited Item-by-Item (ADR-032, ADR-033) / MCP Inbound Capture Owed (ADR-028)
+Desktop Shell Shipped (ADR-029) / Browser Host + MV3 Extension Shipped (ADR-031) / V1 Re-audited
+Item-by-Item (ADR-032, ADR-033) / Extension Installed in a Real Chrome + Real Agent Session
+Round-Tripped + Feature Matrix Run (ADR-034, ADR-035) / MCP Inbound Capture Owed (ADR-028)
 
 LAST COMPLETED:
 - Rust monorepo：`crates/domain|core|storage|state-engine|guard-engine|context-engine|ingestion|security|search|mcp-server` + `apps/cli`
@@ -1036,27 +1037,48 @@ LAST COMPLETED:
   按跑完的那一次改定为 **300 / 23**（第 23 条钉的是 Rust 序列化出来的键名，不是一个新主题）；
   第四、五轮两次未提交的改动合成一个提交 `bd88311`，连同第三轮 `b80669a` 一起推到私有仓库，
   工作树干净、`main` 与 `origin/main` 一致。
+- **第六轮：把预想功能换到真环境里逐条跑一遍**（扩展装进真 Chrome / 真 Qoder 会话进链路 / 桌面端
+  拉起并按帧核对 / 29 节功能矩阵，左右对照表在第六轮报告）。修掉两个只在真环境露头的问题：
+  normalizer 读不了 `content:[{type:"text"}]` 块——真会话 215 轮只进 22 轮（**ADR-034**）；
+  macOS TCC 让 `~/Documents` 下的宿主二进制被 Chrome 拉起时静默卡死在 dyld 的 `open()`，
+  `wp host manifest` 现在会对这种位置打印警告（**ADR-035**）
+- §34 的**扩展真机版**：Chrome for Testing 151（隔离 user-data-dir），extension id
+  `okeehdlhbkmkpoplmciiblmoejkfaieb`；`hello` 从扩展自己的代码里发出并收到能力清单；`capture` 的
+  两轮文字落成 message 行走出事件链；`chrome://extensions` 启用态截图进 `docs/assets/`。
+  弹窗气泡在 headless 台子上渲染不了（`chrome.action.openPopup` 无活动窗口），真 agent 页面上的
+  采集/注入要用户自己的登录会话——两处都记成"人的屏幕"这一类残留，不是代码欠项
+- 真会话进口径：26 MB JSONL → **215/215 轮（35 user + 180 assistant）**、+215 messages、
+  51 events（47 待判定）；accept 一条后 seq 37→66、tasks 2→3；**再导一次 0 新增**（ADR-033 的
+  role-in-key 在真数据上复验）。`wp event` 的词汇表是大写的（`crates/domain/src/event_catalog.rs`）；
+  `wp inbox resolve --kind` 是 `drift` 不是 `driftalert`——两处用法在矩阵里踩到并改对
+- **三面一个 hash**：`wp map show`、桌面窗口头部、`wp-mcp` 的 `project_map.sourceStateHash` 逐字节
+  相同（`53a6bdda3d4f5cea908983d2529d5b4d73b2cc3801972556ff1d887f8293e78e`）——单状态来源
+  （禁止 4）由三个面自己报出同一个数字。桌面重启后读到的是矩阵跑完后的库（seq 1699 / 1651 条已折叠、
+  任务行 `todo → doing`）；冷启动首屏在 1651 事件 / 1628 交付物规模下约半分钟，记成观察而非结论
+- 测试：`cargo test --workspace` = **303 passed / 0 failed / 1 ignored**（+3：normalizer 2 条、
+  host manifest 守卫 1 条），零 warning；矩阵 29 节的原始输出与 MCP 转录进 `docs/assets/`
 
 CURRENT BLOCKER:
-None. V1-D 的那扇门这一轮建完了，两侧是对着写的：Rust 宿主 + MV3 扩展，对接时找出的两处不一致已就地
-修订进 ADR-031。剩下的唯一 V1 欠项是 ADR-028 的入站 MCP 采集——它不缺代码位置，缺的是一个真的、值得
-工作台主动去读的 agent 会话源；§13.2 没要求 V1 去连第三方进程，禁止 8 也不允许在没有触发条件时先装一个
-async runtime。仍未由机器保证的只有浏览器那一侧的**渲染**：扩展没有装进真 Chrome 跑过（本轮验证到的范围是
-`node --check` 过三份 JS、`popup.html` 的 12 个 id 与 `popup.js` 逐个对上、`wp host manifest` 落出的记录与
-wrapper 逐字看过、以及真 `wp host serve` 收到一帧 `chrome-extension://` 的 `hello` 并回了能力清单）。
-MV3 的页面结构识别、输入框定位与 §7.8 的"填而不发"要在人的浏览器里再看一次——这与 ADR-029 给桌面壳留的
-那条（webview 渲染仍是手工核对）是同一类残留，不是新的缺口。
+None. 第六轮把浏览器一侧从"纸面"推进到真机台：扩展装进 Chrome for Testing 151 并跑通 hello / capture，
+真会话 215 轮进链路，桌面端重启后读同一份库、与 CLI / MCP 三个面报同一个 state hash。剩下的欠项只有
+ADR-028 的入站 MCP 采集——它不缺代码位置，缺的是一个真的、值得工作台主动去读的 agent 会话源；§13.2 没要求
+V1 去连第三方进程，禁止 8 也不允许在没有触发条件时先装 async runtime。仍未由机器保证的都在"需要人的
+屏幕/浏览器"这一侧：真 agent 页面（chatgpt.com / claude.ai / gemini.google.com）上的 DOM 采集与输入框
+注入要用户自己的登录会话（本轮是隔离 bench，不是用户日常 profile）；扩展弹窗气泡在 headless 台子上
+不可渲染（`chrome.action.openPopup` 无活动窗口，台子里以页面方式核对的是界面 id 与文案）；Tauri webview
+的交互式点击仍以窗口截图核对为限（ADR-029）。这三处是同一类残留，不是代码缺口。
 
 NEXT IMMEDIATE TARGET:
 V1 只剩一件挂在账上的事：**ADR-028 的入站 MCP 采集**——工作台主动去读 agent 那边的会话，读回来的仍然只是
-证据，落地成 Event 再由 fold 更新面板（禁止 4 / 禁止 9，与这一轮的浏览器推送同一套说法）。它的触发条件、
+证据，落地成 Event 再由 fold 更新面板（禁止 4 / 禁止 9，与第四轮的浏览器推送同一套说法）。它的触发条件、
 `McpClientAdapter` 七个动词的映射，以及"必须 stdio 阻塞、不许为它引 async runtime"这条由 §60 决定的约束，
 都写在 ADR-028 里；除它之外 §7.1 的 V1-A…V1-H 八段没有一个还留着没写的代码。
-另一件不需要新代码、但下一轮该做的：**在真 Chrome 里装一次这个扩展**，把 §二 那两行 `mkdir` / `cp` 走到底，
-看 `capture` 在一个真的 ChatGPT / Claude 会话上采到几轮、`inject` 把包写进了哪个输入框。桌面壳留下的那类残留
-（ADR-029：webview 渲染手工核对）在扩展这一侧一模一样。
+另一件不需要新代码、只需要人在场：**在用户自己的 Chrome profile 里真用一次**——装 `apps/extension`，
+在一个真的、已登录的 ChatGPT / Claude 会话上 `capture` 一轮，再把一份上下文包 `inject` 进输入框。
+这一轮的 CfT bench 把这扇门的协议面全部验过了；剩下的是页面 DOM 与登录态，属于 ADR-031 写在后果里的
+那次人工验收。桌面壳（ADR-029：webview 渲染手工核对）与它是同一类。
 §14 判定：第 1、4、5、7、8、9、10 项在核心、CLI、MCP 读面与桌面壳上都已具备；第 2、3、6 项可从 CLI 走到；
-"发送进另一个 Agent"这一轮有了真实的**输送**通道（`open` / `inject` 到浏览器，永远 `send:false`），
+"发送进另一个 Agent"在第四轮有了真实的**输送**通道（`open` / `inject` 到浏览器，永远 `send:false`），
 而 `AgentAdapter::inject()` 对已交付适配器仍返回 `Ok(None)`——ADR-031 把这一次记成结论而不是缺口。
 
 完整阶段记录：docs/RECORDS.md
@@ -1262,13 +1284,20 @@ V1-D Capture ◐（核心 + CLI + §38.5 的出向 MCP 只读接口 + §34/§35 
               于是"用户说继续 / 助手也答继续"会被吞掉一条——role 现在进键（ADR-033，migration v4，
               重建表），时间窗仍然不进键（§51 的幂等靠身份而不是靠时间戳，"同一句话后来又说一遍"
               归 L3 提示）。同轮补上 §39 的删除信号测试：真目录里真删一个文件，
-              一个 `ARTIFACT_DELETED`、行被标记而非删除、第三遍安静、不产生任何结论）
+              一个 `ARTIFACT_DELETED`、行被标记而非删除、第三遍安静、不产生任何结论。
+              第六轮把扩展装进真的 Chrome 系浏览器（Chrome for Testing 151，隔离 user-data-dir）：
+              hello 从扩展自己的代码发出并收到能力清单，capture 的两轮文字落成 message 行；
+              真 agent 页面上的 DOM 采集/注入与弹窗气泡渲染留给人自己的浏览器（ADR-031 的后果）。
+              同轮把宿主二进制的 TCC 坑写进产品（ADR-035）；真会话 import 连出 normalizer 只读字符串
+              块数组的缺陷（ADR-034）。**欠的那半名字不变**：入站 MCP 采集，ADR-028）
 V1-E Workbench ✅（`apps/desktop`：Tauri 2 只做已编译视图的展示，第一屏 diff →
                用户挑哪些变动生效 → map。§21 列的七个屏幕全部有内容而不只是有命令——第五轮核对时发现
                Overview 与 Evolution 的构造器是空壳（"有命令不等于有屏幕"），§46 的六问与 §47 的五项
                现在逐条作答，答不出的那一问由屏幕自己在 `gaps` 里说原因（ADR-011 的规矩）。
                ADR 那一项**指出去而不建表**：它是 `docs/adr/` 的文档，为它造持久生产者就是第二个状态来源
-               （禁止 4，与 ADR-032 同一套理由）。webview 本身的渲染仍是手工核对，写在 ADR-029 的后果里）
+               （禁止 4，与 ADR-032 同一套理由）。第六轮做了首次人工核对：窗口（1240×820）截图、
+               重启后读到矩阵跑完后的库（seq 1699 / 任务行 `todo → doing`）、与 CLI / MCP 三面同一个
+               state hash；冷启动首屏在 1651 事件 / 1628 交付物规模下约半分钟——记成观察，尚未立预算）
 V1-F Context Engine ✅
 V1-G Guard ✅
 V1-H Hardening ✅（Export / Backup+Restore / Audit / Adapter Health / 监听 / 性能预算 /
